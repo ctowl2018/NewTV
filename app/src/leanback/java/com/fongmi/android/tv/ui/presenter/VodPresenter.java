@@ -8,23 +8,21 @@ import androidx.leanback.widget.Presenter;
 
 import com.fongmi.android.tv.bean.Vod;
 import com.fongmi.android.tv.databinding.AdapterVodBinding;
+import com.fongmi.android.tv.utils.ImgUtil;
 import com.fongmi.android.tv.utils.ResUtil;
 
 public class VodPresenter extends Presenter {
 
-    private OnClickListener mListener;
+    private final OnClickListener mListener;
     private int width, height;
 
-    public VodPresenter(int columns) {
+    public VodPresenter(OnClickListener listener, int columns) {
+        this.mListener = listener;
         setLayoutSize(columns);
     }
 
     public interface OnClickListener {
         void onItemClick(Vod item);
-    }
-
-    public void setOnClickListener(OnClickListener listener) {
-        this.mListener = listener;
     }
 
     private void setLayoutSize(int columns) {
@@ -46,10 +44,10 @@ public class VodPresenter extends Presenter {
     public void onBindViewHolder(Presenter.ViewHolder viewHolder, Object object) {
         Vod item = (Vod) object;
         ViewHolder holder = (ViewHolder) viewHolder;
-        item.loadImg(holder.binding.image);
         holder.binding.name.setText(item.getVodName());
         holder.binding.remark.setText(item.getVodRemarks());
         holder.binding.remark.setVisibility(item.getRemarkVisible());
+        ImgUtil.load(item.getVodName(), item.getVodPic(), holder.binding.image);
         setOnClickListener(holder, view -> mListener.onItemClick(item));
     }
 
