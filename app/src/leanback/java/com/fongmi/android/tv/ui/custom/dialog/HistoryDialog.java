@@ -59,8 +59,7 @@ public class HistoryDialog implements ConfigAdapter.OnClickListener {
 
     @Override
     public void onTextClick(Config item) {
-        if (type == 0) callback.setVodConfig(item);
-        if (type == 1) callback.setLiveConfig(item);
+        callback.setConfig(item);
         dialog.dismiss();
     }
 
