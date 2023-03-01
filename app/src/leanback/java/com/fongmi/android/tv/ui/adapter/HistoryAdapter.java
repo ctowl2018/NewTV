@@ -30,7 +30,7 @@ public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.ViewHold
 
     public interface OnClickListener {
 
-        void onItemClick(String item);
+        void onItemClick(String text);
 
         void onDataChanged(int size);
     }
