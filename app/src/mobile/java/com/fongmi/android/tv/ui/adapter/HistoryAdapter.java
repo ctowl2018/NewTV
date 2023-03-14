@@ -49,6 +49,13 @@ public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.ViewHold
 
     public void setDelete(boolean delete) {
         this.delete = delete;
+        notifyItemRangeChanged(0, mItems.size());
+    }
+
+    public void addAll(List<History> items) {
+        mItems.clear();
+        mItems.addAll(items);
+        notifyDataSetChanged();
     }
 
     public void remove(History item) {
@@ -56,12 +63,6 @@ public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.ViewHold
         if (position == -1) return;
         mItems.remove(position);
         notifyItemRemoved(position);
-    }
-
-    public void addAll(List<History> items) {
-        mItems.clear();
-        mItems.addAll(items);
-        notifyDataSetChanged();
     }
 
     @Override
@@ -93,7 +94,7 @@ public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.ViewHold
 
     private void setClickListener(View root, History item) {
         root.setOnLongClickListener(view -> mListener.onLongClick());
-        root.setOnClickListener(v -> {
+        root.setOnClickListener(view -> {
             if (isDelete()) mListener.onItemDelete(item);
             else mListener.onItemClick(item);
         });
