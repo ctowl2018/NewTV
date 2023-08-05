@@ -3,14 +3,14 @@ package com.fongmi.android.tv.ui.holder;
 import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.fongmi.android.tv.bean.Vod;
 import com.fongmi.android.tv.databinding.AdapterVodFolderBinding;
 import com.fongmi.android.tv.ui.adapter.VodAdapter;
+import com.fongmi.android.tv.ui.base.BaseVodHolder;
 import com.fongmi.android.tv.utils.ImgUtil;
 
-public class VodFolderHolder extends RecyclerView.ViewHolder {
+public class VodFolderHolder extends BaseVodHolder {
 
     private final VodAdapter.OnClickListener listener;
     private final AdapterVodFolderBinding binding;
@@ -21,6 +21,7 @@ public class VodFolderHolder extends RecyclerView.ViewHolder {
         this.listener = listener;
     }
 
+    @Override
     public void initView(Vod item) {
         binding.name.setText(item.getVodName());
         binding.remark.setText(item.getVodRemarks());
