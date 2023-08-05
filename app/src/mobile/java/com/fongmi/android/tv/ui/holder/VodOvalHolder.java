@@ -20,8 +20,8 @@ public class VodOvalHolder extends BaseVodHolder {
     }
 
     public VodOvalHolder size(int[] size) {
-        this.binding.image.getLayoutParams().width = size[0];
-        this.binding.image.getLayoutParams().height = size[1];
+        binding.image.getLayoutParams().width = size[0];
+        binding.image.getLayoutParams().height = size[1];
         return this;
     }
 
