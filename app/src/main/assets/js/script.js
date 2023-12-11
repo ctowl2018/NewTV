@@ -12,8 +12,12 @@ function push() {
     doAction('push', { url: $('#push_url').val() });
 }
 
-function api() {
-    doAction('api', { url: $('#api_url').val() });
+function setting() {
+    doAction('setting', { text: $('#setting_text').val() });
+}
+
+function file(path) {
+    doAction('file', { path: path });
 }
 
 function doAction(action, kv) {
@@ -69,13 +73,15 @@ function selectFile(path, canDel) {
     current_file = path;
     if (canDel) $("#delFileBtn").show();
     else $("#delFileBtn").hide();
-    $("#fileUrl")[0].value = "file:/" + current_file;
+    $("#fileUrl").html("file:/" + current_file);
     $("#fileInfoDialog").show();
 }
 
-function fileToApi() {
-    doAction('api', { url: "file:/" + current_file });
+function pushFile(yes) {
     hideFileInfo();
+    if (yes == 1) {
+        file("file:/" + current_file);
+    }
 }
 
 function hideFileInfo() {
@@ -166,7 +172,7 @@ function doNewFolder(yes) {
         let name = $('#newFolderContent')[0].value.trim();
         if (name.length <= 0) return false;
         $('#loadingToast').show();
-        $.post('/newFolder', { path: current_root, name: '' + name }, function (data) {
+        $.post('/newFolder', { path: current_root, name: name }, function (data) {
             $('#loadingToast').hide();
             listFile(current_root);
         });
@@ -190,9 +196,9 @@ function doDelFolder(yes) {
 }
 
 function delFile() {
-    hideFileInfo();
     $('#delFileContent').html('是否刪除 ' + current_file);
     $('#delFile').show();
+    hideFileInfo();
 }
 
 function doDelFile(yes) {
@@ -215,13 +221,13 @@ function warnToast(msg) {
 }
 
 function showPanel(id) {
-    let tab = $('#tab' + id)[0];
+    let tab = $('#tab' + id);
     $(tab).attr('aria-selected', 'true').addClass('weui-bar__item_on');
     $(tab).siblings('.weui-bar__item_on').removeClass('weui-bar__item_on').attr('aria-selected', 'false');
-    if (id === 3) listFile('')
     var panelId = '#' + $(tab).attr('aria-controls');
     $(panelId).css('display', 'block');
     $(panelId).siblings('.weui-tab__panel').css('display', 'none');
+    if (id === 4) listFile('')
 }
 
 $(function () {
