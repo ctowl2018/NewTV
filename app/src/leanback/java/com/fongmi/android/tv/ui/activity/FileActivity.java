@@ -1,5 +1,6 @@
 package com.fongmi.android.tv.ui.activity;
 
+import android.Manifest;
 import android.content.Intent;
 import android.net.Uri;
 
@@ -12,6 +13,7 @@ import com.fongmi.android.tv.ui.base.BaseActivity;
 import com.fongmi.android.tv.ui.presenter.FilePresenter;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.github.catvod.utils.Path;
+import com.permissionx.guolindev.PermissionX;
 
 import java.io.File;
 
@@ -33,7 +35,7 @@ public class FileActivity extends BaseActivity implements FilePresenter.OnClickL
     @Override
     protected void initView() {
         setRecyclerView();
-        update(Path.root());
+        PermissionX.init(this).permissions(Manifest.permission.WRITE_EXTERNAL_STORAGE).request((allGranted, grantedList, deniedList) -> update(Path.root()));
     }
 
     private void setRecyclerView() {

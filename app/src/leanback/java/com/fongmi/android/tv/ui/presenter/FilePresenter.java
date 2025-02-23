@@ -35,7 +35,7 @@ public class FilePresenter extends Presenter {
         ViewHolder holder = (ViewHolder) viewHolder;
         holder.binding.name.setText(file.getName());
         holder.binding.getRoot().setOnClickListener(v -> mListener.onItemClick(file));
-        holder.binding.image.setImageResource(file.isDirectory() ? R.drawable.ic_file_folder : R.drawable.ic_file_file);
+        holder.binding.image.setImageResource(file.isDirectory() ? R.drawable.ic_folder : R.drawable.ic_file);
     }
 
     @Override
