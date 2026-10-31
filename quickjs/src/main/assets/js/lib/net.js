@@ -172,7 +172,7 @@ function validateCache(key, options, loader) {
 }
 
 function refresh(key, options, loader, id = null) {
-    cached(key, options, loader, id, true).catch(error => console.error(`Cache ${key}: ${error.message}`));
+    cached(key, options, loader, id, true).catch(error => console.error(`Cache ${key}: ${error?.message ?? String(error)}`));
 }
 
 function download(url, path, options = {}) {
