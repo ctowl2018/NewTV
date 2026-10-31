@@ -226,7 +226,7 @@ public class Global {
         ctx.bind(bridge, "cached", args -> cache.load(str(args, 0), str(args, 1), integer(args, 2), callback(args, 3), callback(args, 4), bool(args, 5))).join();
         ctx.bind(bridge, "peek", args -> cache.peek(str(args, 0), integer(args, 1))).join();
         ctx.bind(bridge, "clearCache", args -> cache.clear(str(args, 0), integer(args, 1))).join();
-        ctx.bind(bridge, "cacheResolve", args -> cache.resolve(integer(args, 0), str(args, 1), str(args, 2))).join();
+        ctx.bindReference(bridge, "cacheResolve", args -> cache.resolve(integer(args, 0), str(args, 1), (QuickJS.Reference) arg(args, 2))).join();
         ctx.bind(bridge, "local", args -> cache.local(str(args, 0), str(args, 1), str(args, 2))).join();
     }
 
@@ -305,6 +305,7 @@ public class Global {
     CompletableFuture<Object> invoke(Invocation current, QuickJS.Callback callback, Object... args) {
         if (destroyed) return Task.failedFuture(new IllegalStateException("Spider destroyed"));
         CompletableFuture<Object> result = new CompletableFuture<>();
+        current.track(result);
         ctx.execute(() -> invoke(current, callback, result, args)).whenComplete((value, error) -> {
             if (error != null) result.completeExceptionally(error);
         });
@@ -425,8 +426,29 @@ public class Global {
         return Crypto.rsa(mode, pub, encrypt, input, inBase64, key, outBase64);
     }
 
-    void complete(QuickJS.Callback complete, Object... args) {
-        submit(() -> invoke(complete, () -> complete.call(args)));
+    CompletableFuture<Object> complete(QuickJS.Callback complete, Object... args) {
+        if (destroyed) return Task.failedFuture(new IllegalStateException("Spider destroyed"));
+        CompletableFuture<Object> result = new CompletableFuture<>();
+        ctx.execute(() -> invoke(complete, () -> deliver(complete, result, args))).whenComplete((value, error) -> finishDelivery(result, error));
+        return result;
+    }
+
+    private CompletableFuture<Object> deliver(QuickJS.Callback complete, CompletableFuture<Object> result, Object[] args) {
+        CompletableFuture<Object> delivery = complete.call(args);
+        delivery.whenComplete((value, error) -> {
+            if (error == null) result.complete(value);
+            else result.completeExceptionally(error);
+        });
+        return delivery;
+    }
+
+    private void finishDelivery(CompletableFuture<Object> result, Throwable error) {
+        if (error != null) {
+            result.completeExceptionally(error);
+            if (!destroyed) SpiderDebug.log(error);
+        } else if (destroyed) {
+            result.completeExceptionally(new IllegalStateException("Spider destroyed"));
+        }
     }
 
     void hold(QuickJS.Callback callback) {
