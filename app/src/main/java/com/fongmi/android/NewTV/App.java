@@ -17,6 +17,7 @@ import androidx.annotation.Nullable;
 import androidx.core.os.HandlerCompat;
 
 import com.fongmi.android.NewTV.receiver.RuntimeReceiver;
+import com.fongmi.android.NewTV.setting.Setting;
 import com.fongmi.android.NewTV.ui.dialog.SpiderDialog;
 import com.fongmi.android.NewTV.utils.Notify;
 import com.fongmi.android.NewTV.utils.RuntimeInstaller;
@@ -94,6 +95,8 @@ public class App extends Application implements Application.ActivityLifecycleCal
     @Override
     public void onCreate() {
         super.onCreate();
+        Setting.migrateDefaults();
+        Setting.migrateHotSource();
         initRuntime();
         Notify.createChannel();
         registerActivityLifecycleCallbacks(this);
@@ -141,7 +144,6 @@ public class App extends Application implements Application.ActivityLifecycleCal
         if (activity != activity()) this.activity = activity;
         RuntimeModule.refresh();
         RuntimeInstaller.resumeUpdate(activity);
-        Updater.get().notifyModules();
     }
 
     @Override

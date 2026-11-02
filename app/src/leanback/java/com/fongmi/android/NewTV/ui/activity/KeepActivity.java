@@ -42,6 +42,17 @@ public class KeepActivity extends BaseActivity implements KeepAdapter.OnClickLis
         getKeep();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mBinding.recycler.requestFocus();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+    }
+
     private void setRecyclerView() {
         mBinding.recycler.setHasFixedSize(true);
         mBinding.recycler.setItemAnimator(null);

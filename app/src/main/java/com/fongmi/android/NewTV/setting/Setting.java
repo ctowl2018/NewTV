@@ -9,10 +9,6 @@ public class Setting {
     /** 热词榜最小刷新间隔：15 分钟。榜单是低频数据，没必要每次进搜索页都打三次请求。 */
     private static final long HOT_TTL_MS = 15 * 60 * 1000L;
 
-    private static final int MIN_WALL = 0;
-    private static final int MAX_WALL = 4;
-    private static final int MIN_WALL_TYPE = 0;
-    private static final int MAX_WALL_TYPE = 2;
     private static final int MIN_SITE_MODE = 0;
     private static final int MAX_SITE_MODE = 1;
     private static final int MIN_SYNC_MODE = 0;
@@ -20,6 +16,33 @@ public class Setting {
 
     public static String getSwitch(boolean value) {
         return ResUtil.getString(value ? R.string.setting_on : R.string.setting_off);
+    }
+
+    /**
+     * 一次性把新版默认值写入已有安装：老版本持久化过 danmaku_load/size/danmaku_api_url，
+     * 只改代码里的默认值对升级用户不生效，这里统一覆盖一次。
+     */
+    public static void migrateDefaults() {
+        try {
+            if (Prefers.getBoolean("defaults_v2")) return;
+            Prefers.put("danmaku_load", true);
+            Prefers.put("danmaku_api_url", DanmakuSetting.DEFAULT_API_URL);
+            Prefers.put("size", 1);
+            Prefers.put("defaults_v2", true);
+        } catch (Exception ignored) {
+            // 启动阶段 Prefers 尚未就绪时忽略，下次启动再迁移。
+        }
+    }
+
+    /** 热词数据源改为「腾讯优先 + 360kan」后，清空一次节流时间，保证升级后首次进入就拉取新数据。 */
+    public static void migrateHotSource() {
+        try {
+            if (Prefers.getBoolean("hot_source_v2")) return;
+            Prefers.put("hot_time", 0L);
+            Prefers.put("hot_source_v2", true);
+        } catch (Exception ignored) {
+            // 启动阶段 Prefers 尚未就绪时忽略，下次启动再迁移。
+        }
     }
 
     public static String getDoh() {
@@ -89,44 +112,6 @@ public class Setting {
 
     public static void putSearchSuggest(boolean suggest) {
         Prefers.put("search_suggest", suggest);
-    }
-
-    public static int getWall() {
-        return Math.clamp(Prefers.getInt("wall", 1), MIN_WALL, MAX_WALL);
-    }
-
-    public static void putWall(int wall) {
-        Prefers.put("wall", Math.clamp(wall, MIN_WALL, MAX_WALL));
-    }
-
-    public static int getWallType() {
-        return Math.clamp(Prefers.getInt("wall_type", 0), MIN_WALL_TYPE, MAX_WALL_TYPE);
-    }
-
-    public static void putWallType(int type) {
-        Prefers.put("wall_type", Math.clamp(type, MIN_WALL_TYPE, MAX_WALL_TYPE));
-    }
-
-    public static int getThemeColor() {
-        return Prefers.getInt("theme_color", -1);
-    }
-
-    public static void putThemeColor(int color) {
-        Prefers.put("theme_color", color);
-    }
-
-    public static int getWallColor() {
-        return Prefers.getInt("wall_color", 0);
-    }
-
-    public static void putWallColor(int color) {
-        Prefers.put("wall_color", color);
-    }
-
-    public static int getDynamicColor() {
-        int color = getThemeColor();
-        if (color == -1) return 0;
-        return color != 0 ? color : getWallColor();
     }
 
     public static int getSiteMode() {

@@ -73,7 +73,11 @@ public class SiteViewModel extends ViewModel {
     }
 
     public void searchContent(List<Site> sites, String keyword, boolean quick) {
-        searches.start(sites, site -> new SearchTask(site, keyword, quick, "1"), search::postValue);
+        searchContent(sites, keyword, quick, null);
+    }
+
+    public void searchContent(List<Site> sites, String keyword, boolean quick, Runnable onComplete) {
+        searches.start(sites, site -> new SearchTask(site, keyword, quick, "1"), search::postValue, onComplete);
     }
 
     private void execute(TaskType type, MutableLiveData<Result> liveData, Callable<Result> callable) {

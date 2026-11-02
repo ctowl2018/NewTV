@@ -10,6 +10,7 @@
 
     <style name="Theme.Base" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/white</item>
+        <item name="android:windowBackground">@color/background</item>
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowTranslucentStatus">true</item>
         <item name="android:windowTranslucentNavigation">true</item>
@@ -18,8 +19,23 @@
 
     <style name="Theme.Splash" parent="Theme.SplashScreen">
         <item name="postSplashScreenTheme">@style/Theme.App</item>
-        <item name="windowSplashScreenBackground">@color/splash_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="windowSplashScreenBackground">@color/startup_background</item>
+        <!-- 系统启动槽位是方形，放不下横向组合标，这里用透明块隐藏，组合标由 HomeActivity 的闪屏层绘制 -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_blank</item>
+        <item name="android:windowBackground">@drawable/startup_window_background</item>
+    </style>
+
+    <!-- 顶部工具栏图标（搜索/收藏/连接/设置）：常态完全无背景，仅聚焦时出现半透明白色圆块 -->
+    <style name="HomeToolbarIcon">
+        <item name="android:layout_width">34dp</item>
+        <item name="android:layout_height">34dp</item>
+        <item name="android:layout_gravity">center_vertical</item>
+        <item name="android:background">@drawable/selector_toolbar_icon</item>
+        <item name="android:focusable">true</item>
+        <item name="android:focusableInTouchMode">true</item>
+        <item name="android:padding">7dp</item>
+        <item name="android:scaleType">fitCenter</item>
+        <item name="android:tint">@color/white</item>
     </style>
 
     <style name="Theme.App" parent="Theme.Base" />

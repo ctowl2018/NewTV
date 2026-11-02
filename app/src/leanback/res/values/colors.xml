@@ -1,0 +1,6 @@
+<resources>
+
+    <!-- 顶部工具栏图标焦点态：半透明白色圆块，常态完全透明（无背景色块） -->
+    <color name="focus_block">#33FFFFFF</color>
+
+</resources>

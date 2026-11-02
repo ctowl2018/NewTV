@@ -1,7 +1,5 @@
 package com.fongmi.android.NewTV.ui.base;
 
-import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
-
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -16,11 +14,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.FragmentActivity;
 import androidx.viewbinding.ViewBinding;
 
-import com.fongmi.android.NewTV.setting.Setting;
-import com.fongmi.android.NewTV.ui.custom.CustomWallView;
 import com.fongmi.android.NewTV.utils.ResUtil;
-import com.google.android.material.color.DynamicColors;
-import com.google.android.material.color.DynamicColorsOptions;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -33,7 +27,6 @@ public abstract class BaseActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         enableEdgeToEdge();
-        enableDynamicColor();
         super.onCreate(savedInstanceState);
         setContentView(getBinding().getRoot());
         EventBus.getDefault().register(this);
@@ -42,19 +35,8 @@ public abstract class BaseActivity extends AppCompatActivity {
         initEvent();
     }
 
-    @Override
-    public void setContentView(View view) {
-        super.setContentView(view);
-        if (!customWall()) return;
-        ((ViewGroup) findViewById(android.R.id.content)).addView(new CustomWallView(this, null), 0, new ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT));
-    }
-
     protected FragmentActivity getActivity() {
         return this;
-    }
-
-    protected boolean customWall() {
-        return true;
     }
 
     protected void initView(Bundle savedInstanceState) {
@@ -106,11 +88,6 @@ public abstract class BaseActivity extends AppCompatActivity {
             getWindow().setStatusBarContrastEnforced(false);
             getWindow().setNavigationBarContrastEnforced(false);
         }
-    }
-
-    private void enableDynamicColor() {
-        int color = Setting.getDynamicColor();
-        if (color != 0) DynamicColors.applyToActivityIfAvailable(this, new DynamicColorsOptions.Builder().setContentBasedSource(color).build());
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)

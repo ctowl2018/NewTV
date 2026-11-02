@@ -8,7 +8,6 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.fongmi.android.NewTV.api.config.VodConfig;
-import com.fongmi.android.NewTV.api.config.WallConfig;
 import com.fongmi.android.NewTV.bean.Config;
 import com.fongmi.android.NewTV.databinding.AdapterConfigBinding;
 
@@ -43,11 +42,7 @@ public class ConfigAdapter extends RecyclerView.Adapter<ConfigAdapter.ViewHolder
     }
 
     private Config getCurrentConfig(int type) {
-        return switch (type) {
-            case 0 -> VodConfig.get().getConfig();
-            case 2 -> WallConfig.get().getConfig();
-            default -> null;
-        };
+        return type == 0 ? VodConfig.get().getConfig() : null;
     }
 
     public int remove(Config item) {

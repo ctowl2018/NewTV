@@ -7,6 +7,8 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewbinding.ViewBinding;
 
+import android.app.Dialog;
+
 import com.fongmi.android.NewTV.R;
 import com.fongmi.android.NewTV.api.config.VodConfig;
 import com.fongmi.android.NewTV.bean.Site;
@@ -52,7 +54,8 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     }
 
     private int getCount() {
-        return list() ? 1 : Math.clamp((int) Math.ceil((double) adapter.getItemCount() / GRID_COUNT), 2, 3);
+        // 站点选择菜单固定为横向 3 列（竖向约 6 行由 maxHeight 控制），不再随站点数量切换单列/多列。
+        return 3;
     }
 
     @Override
@@ -130,5 +133,11 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         super.onStart();
         if (adapter.getItemCount() == 0) dismiss();
         else setWidth();
+        // 半透明面板：窗口背景置透明，内容根布局自带半透明圆角背景，背后 activity 仍隐约可见。
+        Dialog dialog = getDialog();
+        if (dialog != null && dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            dialog.getWindow().setDimAmount(0.45f);
+        }
     }
 }

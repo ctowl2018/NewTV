@@ -5,8 +5,12 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:background="@drawable/selector_item_round"
+    android:ellipsize="marquee"
     android:focusable="true"
     android:focusableInTouchMode="true"
+    android:marqueeRepeatLimit="marquee_forever"
+    android:scrollHorizontally="true"
+    android:singleLine="true"
     android:textColor="@color/text"
     android:textSize="16sp"
     tools:text="電影" />

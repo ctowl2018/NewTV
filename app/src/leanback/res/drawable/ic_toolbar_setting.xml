@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  顶部工具栏「设置」：六角螺母（平顶六边形 + 内圈）。
+  用几何形替代原来的齿轮，缩放后轮廓依然清楚，不会像齿轮那样在 20dp 以下糊成一团；
+  线宽/端点与同组放大镜、星形保持一致。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:tint="@color/white"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M20.95,12L16.48,4.25L7.53,4.25L3.05,12L7.53,19.75L16.48,19.75Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.9" />
+
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M12,8.25a3.75,3.75 0 1,1 0,7.5a3.75,3.75 0 1,1 0,-7.5"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.9" />
+</vector>

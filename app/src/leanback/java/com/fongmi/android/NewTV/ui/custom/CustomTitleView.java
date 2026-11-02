@@ -12,23 +12,23 @@ import androidx.annotation.Nullable;
 import com.fongmi.android.NewTV.App;
 import com.fongmi.android.NewTV.R;
 import com.fongmi.android.NewTV.api.config.VodConfig;
-import com.fongmi.android.NewTV.bean.Site;
 import com.fongmi.android.NewTV.impl.SiteListener;
 import com.fongmi.android.NewTV.utils.KeyUtil;
 import com.fongmi.android.NewTV.utils.ResUtil;
 import com.google.android.material.textview.MaterialTextView;
 
-import java.util.List;
-
+/**
+ * 顶部站点名称。
+ *
+ * <p>已取消「左右键切换站点」：左右键恢复为正常的焦点走位，
+ * 站点切换改用搜索/收藏旁的「连接」入口与设置页，避免抢走导航栏的横向移动。
+ * 仅保留上键刷新当前源首页内容。
+ */
 public class CustomTitleView extends MaterialTextView {
 
     private Listener listener;
     private Animation flicker;
     private boolean coolDown;
-
-    private Site getHome() {
-        return VodConfig.get().getHome();
-    }
 
     public CustomTitleView(@NonNull Context context) {
         super(context);
@@ -45,7 +45,7 @@ public class CustomTitleView extends MaterialTextView {
     }
 
     private boolean hasEvent(KeyEvent event) {
-        return !getHome().isEmpty() && (KeyUtil.isLeftKey(event) || KeyUtil.isRightKey(event) || (KeyUtil.isUpKey(event) && !coolDown));
+        return !VodConfig.get().getHome().isEmpty() && KeyUtil.isUpKey(event) && !coolDown;
     }
 
     @Override
@@ -58,34 +58,14 @@ public class CustomTitleView extends MaterialTextView {
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (!hasEvent(event)) return super.dispatchKeyEvent(event);
-        onKeyDown(event);
+        onKeyUp();
         return true;
-    }
-
-    private void onKeyDown(KeyEvent event) {
-        if (KeyUtil.isActionDown(event) && KeyUtil.isUpKey(event)) onKeyUp();
-        else if (KeyUtil.isActionDown(event) && KeyUtil.isLeftKey(event)) listener.setSite(getSite(false));
-        else if (KeyUtil.isActionDown(event) && KeyUtil.isRightKey(event)) listener.setSite(getSite(true));
     }
 
     private void onKeyUp() {
         App.post(() -> coolDown = false, 3000);
         listener.onRefresh();
         coolDown = true;
-    }
-
-    private Site getSite(boolean next) {
-        List<Site> items = getSites();
-        if (items.isEmpty()) return new Site();
-        int position = items.indexOf(getHome());
-        if (position < 0) position = 0;
-        if (next) position = (position + 1) % items.size();
-        else position = (position - 1 + items.size()) % items.size();
-        return items.get(position);
-    }
-
-    private List<Site> getSites() {
-        return VodConfig.get().getSites().stream().filter(site -> !site.isHide()).toList();
     }
 
     public interface Listener extends SiteListener {

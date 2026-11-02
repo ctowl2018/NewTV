@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  顶部工具栏「搜索」：严格按参考稿重绘的放大镜。
+  与原实现（闭合圆环 + 长手柄）的差别：
+    · 镜片大 —— 描边中心半径 7.5，外径 16.9/24，占图标包围盒九成以上，和星形/螺母视觉等重；
+    · 圆环右下开口约 27°（33°~60°），两端 round cap 收口，形成参考稿里的“缺口”；
+    · 手柄短、45°、与圆环开口之间留一道细缝，长度约为镜片直径的 1/3；
+    · 描边 1.9 与同组星形、螺母完全一致，端点/连接全圆头。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:tint="@color/white"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- 镜片：从 60° 顺时针绕到 33°，右下留缺口 -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M14.55,17.3A7.5,7.5 0 1,1 17.09,14.88"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="1.9" />
+
+    <!-- 手柄：45° 短柄，起点在缺口外侧，与圆环脱开 -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M16.9,16.9L20.3,20.3"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="1.9" />
+</vector>

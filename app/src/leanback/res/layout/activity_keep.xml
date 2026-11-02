@@ -1,17 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.fongmi.android.NewTV.ui.custom.ProgressLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/progressLayout"
+<androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/background"
+    android:orientation="vertical">
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recycler"
+    <com.fongmi.android.NewTV.ui.custom.ProgressLayout
+        android:id="@+id/progressLayout"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:overScrollMode="never"
-        android:padding="24dp" />
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
-</com.fongmi.android.NewTV.ui.custom.ProgressLayout>
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:overScrollMode="never"
+            android:paddingStart="24dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="24dp"
+            android:paddingBottom="24dp" />
 
+    </com.fongmi.android.NewTV.ui.custom.ProgressLayout>
+
+</androidx.appcompat.widget.LinearLayoutCompat>

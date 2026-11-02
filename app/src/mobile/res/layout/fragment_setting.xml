@@ -4,6 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/background"
     android:orientation="vertical">
 
     <com.google.android.material.appbar.MaterialToolbar
@@ -29,6 +30,7 @@
             android:paddingEnd="16dp"
             android:paddingBottom="16dp">
 
+            <!-- 点播配置 -->
             <androidx.appcompat.widget.LinearLayoutCompat
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -84,62 +86,7 @@
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
-            <androidx.appcompat.widget.LinearLayoutCompat
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <androidx.appcompat.widget.LinearLayoutCompat
-                    android:id="@+id/wall"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="12dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/shape_item"
-                    android:orientation="horizontal">
-
-                    <com.google.android.material.textview.MaterialTextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginEnd="16dp"
-                        android:text="@string/setting_wall"
-                        android:textColor="@color/white"
-                        android:textSize="16sp" />
-
-                    <com.google.android.material.textview.MaterialTextView
-                        android:id="@+id/wallUrl"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:ellipsize="middle"
-                        android:gravity="end"
-                        android:singleLine="true"
-                        android:textColor="@color/white"
-                        android:textSize="16sp"
-                        tools:text="https://" />
-
-                </androidx.appcompat.widget.LinearLayoutCompat>
-
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/wallDefault"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="12dp"
-                    android:background="@drawable/shape_item"
-                    android:padding="7dp"
-                    android:src="@drawable/ic_setting_home" />
-
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/wallRefresh"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/shape_item"
-                    android:padding="7dp"
-                    android:src="@drawable/ic_setting_refresh" />
-
-            </androidx.appcompat.widget.LinearLayoutCompat>
-
+            <!-- 播放器 -->
             <androidx.appcompat.widget.LinearLayoutCompat
                 android:id="@+id/player"
                 android:layout_width="match_parent"
@@ -157,6 +104,7 @@
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
+            <!-- 弹幕 -->
             <androidx.appcompat.widget.LinearLayoutCompat
                 android:id="@+id/danmaku"
                 android:layout_width="match_parent"
@@ -174,23 +122,7 @@
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
-            <androidx.appcompat.widget.LinearLayoutCompat
-                android:id="@+id/module"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
-                android:orientation="horizontal">
-
-                <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/setting_module"
-                    android:textColor="@color/white"
-                    android:textSize="16sp" />
-
-            </androidx.appcompat.widget.LinearLayoutCompat>
-
+            <!-- 海报尺寸 -->
             <androidx.appcompat.widget.LinearLayoutCompat
                 android:id="@+id/size"
                 android:layout_width="match_parent"
@@ -214,37 +146,11 @@
                     android:gravity="end"
                     android:textColor="@color/white"
                     android:textSize="16sp"
-                    tools:text="Medium" />
+                    tools:text="每行 6 个" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
-            <androidx.appcompat.widget.LinearLayoutCompat
-                android:id="@+id/themeColor"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
-                android:orientation="horizontal">
-
-                <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
-                    android:text="@string/setting_theme_color"
-                    android:textColor="@color/white"
-                    android:textSize="16sp" />
-
-                <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/themeColorText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="end"
-                    android:textColor="@color/white"
-                    android:textSize="16sp"
-                    tools:text="Auto" />
-
-            </androidx.appcompat.widget.LinearLayoutCompat>
-
+            <!-- 无痕模式 -->
             <androidx.appcompat.widget.LinearLayoutCompat
                 android:id="@+id/incognito"
                 android:layout_width="match_parent"
@@ -272,6 +178,7 @@
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
+            <!-- DoH -->
             <androidx.appcompat.widget.LinearLayoutCompat
                 android:id="@+id/doh"
                 android:layout_width="match_parent"
@@ -299,13 +206,41 @@
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
+            <!-- 搜索建议 -->
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:id="@+id/searchSuggest"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/shape_item"
+                android:orientation="horizontal">
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="16dp"
+                    android:text="@string/setting_search_suggest"
+                    android:textColor="@color/white"
+                    android:textSize="16sp" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/searchSuggestText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:textColor="@color/white"
+                    android:textSize="16sp"
+                    tools:text="開" />
+
+            </androidx.appcompat.widget.LinearLayoutCompat>
+
+            <!-- 备份 / 恢复 -->
             <androidx.appcompat.widget.LinearLayoutCompat
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:background="@drawable/shape_item"
-                android:orientation="horizontal"
-                android:padding="0dp">
+                android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/backup"
@@ -338,6 +273,7 @@
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
+            <!-- 缓存 -->
             <androidx.appcompat.widget.LinearLayoutCompat
                 android:id="@+id/cache"
                 android:layout_width="match_parent"
@@ -365,6 +301,7 @@
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
+            <!-- 版本（仅展示，不再检查更新） -->
             <androidx.appcompat.widget.LinearLayoutCompat
                 android:id="@+id/version"
                 android:layout_width="match_parent"
@@ -389,62 +326,6 @@
                     android:textColor="@color/white"
                     android:textSize="16sp"
                     tools:text="1.2.1" />
-
-            </androidx.appcompat.widget.LinearLayoutCompat>
-
-        <androidx.appcompat.widget.LinearLayoutCompat
-            android:id="@+id/ffmpeg"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/shape_item"
-            android:focusable="false"
-            android:focusableInTouchMode="false"
-            android:orientation="horizontal">
-
-            <com.google.android.material.textview.MaterialTextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="16dp"
-                android:text="@string/setting_ffmpeg"
-                android:textColor="@color/white"
-                android:textSize="16sp" />
-
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/ffmpegText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="end"
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                tools:text="不可用" />
-
-        </androidx.appcompat.widget.LinearLayoutCompat>
-
-            <androidx.appcompat.widget.LinearLayoutCompat
-                android:id="@+id/searchSuggest"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
-                android:orientation="horizontal">
-
-                <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
-                    android:text="@string/setting_search_suggest"
-                    android:textColor="@color/white"
-                    android:textSize="16sp" />
-
-                <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/searchSuggestText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="end"
-                    android:textColor="@color/white"
-                    android:textSize="16sp"
-                    tools:text="開" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 

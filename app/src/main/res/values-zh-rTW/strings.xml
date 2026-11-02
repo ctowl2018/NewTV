@@ -46,7 +46,7 @@
     <string name="play_edition">標題</string>
     <string name="play_chapter">章節</string>
     <string name="play_disc_menu">主選單</string>
-    <string name="play_disc_menu_unavailable">目前無法開啟此光碟選單。若為 BD-J，請先到「設定 → 模組管理」安裝 Java 執行環境。</string>
+    <string name="play_disc_menu_unavailable">目前無法開啟此光碟選單。BD-J 播放需要 Java 執行環境支援。</string>
     <string name="play_disc_menu_timeout">選單尚未開啟，請再試一次</string>
     <string name="play_scale">原始</string>
     <string name="play_config">配置</string>
@@ -255,14 +255,9 @@
     <!-- Setting -->
     <string name="setting_vod">點播</string>
     <string name="setting_live">直播</string>
-    <string name="setting_wall">壁紙</string>
     <string name="setting_player">播放設定</string>
-    <string name="setting_module">模組管理</string>
     <string name="setting_danmaku">彈幕設定</string>
     <string name="setting_incognito">無痕模式（不記錄歷史）</string>
-    <string name="setting_theme_color">主題色彩</string>
-    <string name="setting_auto">自動</string>
-    <string name="setting_custom">自訂</string>
     <string name="setting_size">首頁每行海報數</string>
     <string name="setting_doh">DoH</string>
     <string name="setting_proxy">Proxy</string>
@@ -295,7 +290,7 @@
     <string name="module_current">已安裝</string>
     <string name="module_available">可更新</string>
     <string name="module_not_installed">未安裝</string>
-    <string name="error_module_missing">%1$s 未安裝，請至模組管理下載</string>
+    <string name="error_module_missing">%1$s 未安裝，無法使用該功能</string>
     <string name="module_unsupported">此裝置不支援</string>
     <string name="module_restart">請重新啟動</string>
     <string name="module_restart_action">重啟</string>
@@ -303,7 +298,7 @@
     <string name="module_downloading">下載中…</string>
     <string name="module_download">下載</string>
     <string name="module_update">更新</string>
-    <string name="module_update_notice">%1$s 有新版本，請至模組管理更新</string>
+    <string name="module_update_notice">%1$s 有新版本可用</string>
 
     <string name="module_unavailable">暫未提供</string>
     <string name="module_confirm_install">請在系統畫面確認安裝，長按可取消</string>
@@ -597,26 +592,9 @@
         <item>1440p</item>
     </string-array>
     <string name="player_verbose_log">詳細日誌</string>
-    <string name="setting_ffmpeg">FFmpeg 擴充</string>
     <string name="ffmpeg_available">可用</string>
     <string name="ffmpeg_unavailable">不可用</string>
 
-    <string-array name="select_theme">
-        <item>預設</item>
-        <item>跟隨壁紙</item>
-        <item>紫</item>
-        <item>靛藍</item>
-        <item>藍</item>
-        <item>青</item>
-        <item>藍綠</item>
-        <item>綠</item>
-        <item>淺綠</item>
-        <item>橙</item>
-        <item>紅</item>
-        <item>粉</item>
-        <item>紫紅</item>
-        <item>棕</item>
-    </string-array>
     <string name="search_hot_movie">熱播電影</string>
     <string name="search_hot_tv">熱播劇集</string>
     <string name="setting_search_suggest">聯網搜尋建議</string>

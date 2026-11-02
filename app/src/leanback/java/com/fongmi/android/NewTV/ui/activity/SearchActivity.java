@@ -27,8 +27,10 @@ import com.fongmi.android.NewTV.ui.adapter.WordAdapter;
 import com.fongmi.android.NewTV.ui.base.BaseActivity;
 import com.fongmi.android.NewTV.ui.custom.CustomKeyboard;
 import com.fongmi.android.NewTV.ui.custom.CustomTextListener;
+import com.fongmi.android.NewTV.ui.helper.ToolbarHeader;
 import com.fongmi.android.NewTV.ui.dialog.LocalConnectDialog;
 import com.fongmi.android.NewTV.ui.dialog.SiteDialog;
+import com.fongmi.android.NewTV.utils.HotRank;
 import com.fongmi.android.NewTV.utils.KeyUtil;
 import com.fongmi.android.NewTV.utils.SearchSuggest;
 import com.fongmi.android.NewTV.utils.Util;
@@ -36,12 +38,10 @@ import com.fongmi.android.NewTV.utils.ZhuToPin;
 import com.github.catvod.net.OkHttp;
 import com.google.android.flexbox.FlexDirection;
 import com.google.android.flexbox.FlexboxLayoutManager;
-import com.google.common.net.HttpHeaders;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import okhttp3.Call;
 import okhttp3.Response;
@@ -51,6 +51,7 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
     private static final int HOT_LIMIT = 10;
 
     private ActivitySearchBinding mBinding;
+    private ToolbarHeader mHeader;
     private RecordAdapter mRecordAdapter;
     private WordAdapter mWordAdapter;
     private WordAdapter mMovieAdapter;
@@ -92,7 +93,8 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
     }
 
     @Override
-    protected void initView(Bundle savedInstanceState) {
+	protected void initView(Bundle savedInstanceState) {
+        mHeader = ToolbarHeader.bind(this, mBinding.toolbar);
         CustomKeyboard.init(this, mBinding);
         setRecyclerView();
         checkKeyword();
@@ -172,9 +174,9 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
         bindHot(mTvAdapter, mBinding.tvWordRecycler, mBinding.tvWord, Setting.getHotTv());
         bindHot(mVarietyAdapter, mBinding.varietyWordRecycler, mBinding.varietyWord, Setting.getHotVariety());
         if (!Setting.isHotExpired()) return;
-        requestRank(2, mMovieAdapter, mBinding.movieWordRecycler, mBinding.movieWord, Setting::putHotMovie);
-        requestRank(3, mTvAdapter, mBinding.tvWordRecycler, mBinding.tvWord, Setting::putHotTv);
-        requestRank(4, mVarietyAdapter, mBinding.varietyWordRecycler, mBinding.varietyWord, Setting::putHotVariety);
+        requestRank(HotRank.MOVIE, mMovieAdapter, mBinding.movieWordRecycler, mBinding.movieWord, Setting::putHotMovie);
+        requestRank(HotRank.TV, mTvAdapter, mBinding.tvWordRecycler, mBinding.tvWord, Setting::putHotTv);
+        requestRank(HotRank.VARIETY, mVarietyAdapter, mBinding.varietyWordRecycler, mBinding.varietyWord, Setting::putHotVariety);
     }
 
     private void bindHot(WordAdapter adapter, RecyclerView list, TextView label, String json) {
@@ -190,28 +192,15 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
     }
 
     private void requestRank(int cat, WordAdapter adapter, RecyclerView list, TextView label, HotSaver saver) {
-        OkHttp.newCall(rankUrl(cat), Map.of(HttpHeaders.REFERER, "https://www.360kan.com/rank/general")).enqueue(new Callback() {
-            @Override
-            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
-                String result = response.body().string();
-                if (TextUtils.isEmpty(result)) return;
-                App.post(() -> {
-                    if (!empty()) return;
-                    Setting.putHotTime();
-                    saver.save(result);
-                    bindHot(adapter, list, label, result);
-                });
-            }
-
-            @Override
-            public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                // 静默降级：保留缓存内容，不打扰用户
-            }
+        HotRank.fetch(cat, result -> {
+            if (TextUtils.isEmpty(result)) return;
+            App.post(() -> {
+                if (!empty()) return;
+                Setting.putHotTime();
+                saver.save(result);
+                bindHot(adapter, list, label, result);
+            });
         });
-    }
-
-    private String rankUrl(int cat) {
-        return "https://api.web.360kan.com/v1/rank?cat=" + cat;
     }
 
     /**
@@ -419,12 +408,14 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
     @Override
     protected void onPause() {
         super.onPause();
+        mHeader.onPause();
         mBinding.mic.setFocusable(false);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        mHeader.onResume();
         mBinding.mic.setFocusable(true);
         mBinding.keyword.requestFocus();
     }

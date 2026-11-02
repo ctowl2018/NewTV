@@ -77,7 +77,7 @@ public class PlayerSetting {
     }
 
     public static int getSize() {
-        return Math.clamp(Prefers.getInt("size", 2), MIN_SIZE, MAX_SIZE);
+        return Math.clamp(Prefers.getInt("size", 1), MIN_SIZE, MAX_SIZE);
     }
 
     public static void putSize(int size) {

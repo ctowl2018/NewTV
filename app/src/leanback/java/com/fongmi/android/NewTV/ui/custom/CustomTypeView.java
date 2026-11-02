@@ -1,21 +1,23 @@
 package com.fongmi.android.NewTV.ui.custom;
 
 import android.content.Context;
-import android.graphics.Rect;
 import android.util.AttributeSet;
-import android.view.KeyEvent;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.fongmi.android.NewTV.App;
-import com.fongmi.android.NewTV.utils.KeyUtil;
 import com.google.android.material.textview.MaterialTextView;
 
+/**
+ * 类型导航胶囊。
+ *
+ * <p>早期这里拦截了上键去「刷新当前分类」，导致焦点无法离开导航栏向上走；
+ * 现在上键交由宿主的按键拦截处理（统一把焦点送到搜索按钮），
+ * 本类只保留一个空的回调接口以兼容既有绑定代码。
+ */
 public class CustomTypeView extends MaterialTextView {
 
     private Listener listener;
-    private boolean coolDown;
 
     public CustomTypeView(@NonNull Context context) {
         super(context);
@@ -29,28 +31,8 @@ public class CustomTypeView extends MaterialTextView {
         this.listener = listener;
     }
 
-    private boolean hasEvent(KeyEvent event) {
-        return !coolDown && KeyUtil.isActionDown(event) && KeyUtil.isUpKey(event);
-    }
-
-    @Override
-    public boolean dispatchKeyEvent(KeyEvent event) {
-        if (listener != null && hasEvent(event)) return onKeyDown();
-        else return super.dispatchKeyEvent(event);
-    }
-
-    private boolean onKeyDown() {
-        App.post(() -> coolDown = false, 3000);
-        listener.onRefresh();
-        coolDown = true;
-        return true;
-    }
-
-    @Override
-    protected void onFocusChanged(boolean focused, int direction, Rect previouslyFocusedRect) {
-        super.onFocusChanged(focused, direction, previouslyFocusedRect);
-        App.post(() -> coolDown = false, 500);
-        if (focused) coolDown = true;
+    public Listener getListener() {
+        return listener;
     }
 
     public interface Listener {

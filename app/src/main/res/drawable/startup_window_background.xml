@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  系统启动窗口底色：只铺纯色，不画 logo。
+  logo 由 HomeActivity 的闪屏层做淡入，避免「先出现→再淡入」的二次闪动。
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+
+    <solid android:color="@color/startup_background" />
+
+</shape>

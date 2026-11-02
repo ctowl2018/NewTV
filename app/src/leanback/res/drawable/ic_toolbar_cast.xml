@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  顶部工具栏「连接/推送」：二维码。
+  与同组放大镜、星形、螺母保持一致的 1.9 描边、圆角端点与 24dp 画布；
+  三个定位角用 2dp 圆角方框，定位块内部实心点 + 右下三个实心块表达码点。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:tint="@color/white"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M6,4H9A2,2 0 0,1 11,6V9A2,2 0 0,1 9,11H6A2,2 0 0,1 4,9V6A2,2 0 0,1 6,4Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.9" />
+
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M15,4H18A2,2 0 0,1 20,6V9A2,2 0 0,1 18,11H15A2,2 0 0,1 13,9V6A2,2 0 0,1 15,4Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.9" />
+
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M6,13H9A2,2 0 0,1 11,15V18A2,2 0 0,1 9,20H6A2,2 0 0,1 4,18V15A2,2 0 0,1 6,13Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.9" />
+
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6.1,6.1H8.5V8.5H6.1Z" />
+
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M15.1,6.1H17.5V8.5H15.1Z" />
+
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6.1,15.1H8.5V17.5H6.1Z" />
+
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M13.6,13.6H16.2V16.2H13.6Z" />
+
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M17.8,13.6H20.4V16.2H17.8Z" />
+
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M15.7,17.8H18.3V20.4H15.7Z" />
+
+</vector>

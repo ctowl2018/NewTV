@@ -1,39 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/background"
     android:orientation="vertical">
 
-    <com.google.android.material.textview.MaterialTextView
-        android:id="@+id/result"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="24dp"
-        android:layout_marginTop="24dp"
-        android:layout_marginEnd="24dp"
-        android:layout_marginBottom="16dp"
-        android:singleLine="true"
-        android:textColor="@color/white"
-        android:textSize="24sp"
-        tools:text="@string/collect_result" />
+    <include
+        android:id="@+id/toolbar"
+        layout="@layout/view_toolbar" />
 
-    <androidx.leanback.widget.HorizontalGridView
-        android:id="@+id/recycler"
+    <!-- 搜索结果：站点分类导航（左侧竖向）+ 海报列表（右侧分页）分处不同容器，各自独立滚动 -->
+    <androidx.appcompat.widget.LinearLayoutCompat
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:paddingStart="24dp"
-        android:paddingEnd="24dp"
-        app:focusOutEnd="false"
-        app:focusOutFront="false" />
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
 
-    <com.fongmi.android.NewTV.ui.custom.CustomViewPager
-        android:id="@+id/pager"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        <!-- 站点分类导航：左侧竖向排列，宽度由 CollectActivity 按「单列海报宽」动态设置 -->
+        <androidx.leanback.widget.VerticalGridView
+            android:id="@+id/recycler"
+            android:layout_width="120dp"
+            android:layout_height="match_parent"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:paddingStart="24dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="8dp"
+            app:focusOutEnd="true"
+            app:focusOutFront="true" />
+
+        <com.fongmi.android.NewTV.ui.custom.CustomViewPager
+            android:id="@+id/pager"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1" />
+
+    </androidx.appcompat.widget.LinearLayoutCompat>
 
 </androidx.appcompat.widget.LinearLayoutCompat>
-

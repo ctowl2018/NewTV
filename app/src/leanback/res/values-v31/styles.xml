@@ -2,9 +2,10 @@
 
     <style name="Theme.Splash" parent="Theme.SplashScreen">
         <item name="postSplashScreenTheme">@style/Theme.App</item>
-        <item name="windowSplashScreenBackground">@color/splash_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo_animated</item>
-        <item name="windowSplashScreenAnimationDuration">800</item>
+        <item name="windowSplashScreenBackground">@color/startup_background</item>
+        <!-- 系统启动槽位是方形，放不下横向组合标，这里用透明块隐藏，组合标由 HomeActivity 的闪屏层绘制 -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_blank</item>
+        <item name="android:windowBackground">@drawable/startup_window_background</item>
     </style>
 
 </resources>

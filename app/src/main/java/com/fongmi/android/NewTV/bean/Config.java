@@ -102,11 +102,6 @@ public class Config {
         return item == null ? create(1) : item;
     }
 
-    public static Config wall() {
-        Config item = AppDatabase.get().getConfigDao().findOne(2);
-        return item == null ? create(2) : item;
-    }
-
     public static Config find(int id) {
         return AppDatabase.get().getConfigDao().findById(id);
     }

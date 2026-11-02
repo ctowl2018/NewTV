@@ -322,10 +322,6 @@ public final class WebActivity extends BaseActivity implements BrowserWebView.Br
         }
     }
 
-    @Override
-    protected boolean customWall() {
-        return false;
-    }
 
     @Override
     protected void onBackInvoked() {

@@ -16,6 +16,7 @@ import com.fongmi.android.NewTV.bean.Filter;
 import com.fongmi.android.NewTV.databinding.FragmentFolderBinding;
 import com.fongmi.android.NewTV.ui.activity.VodActivity;
 import com.fongmi.android.NewTV.ui.base.BaseFragment;
+import com.fongmi.android.NewTV.ui.helper.ContentFocusHost;
 
 import java.util.HashMap;
 import java.util.Optional;
@@ -46,8 +47,9 @@ public class FolderFragment extends BaseFragment {
         return (TypeFragment) getChildFragmentManager().findFragmentById(R.id.container);
     }
 
-    private VodActivity getParent() {
-        return (VodActivity) getActivity();
+    /** 关闭所在页面的筛选条：只有分类页需要，首页内嵌分页时静默跳过。 */
+    private void closeHostFilter() {
+        if (getActivity() instanceof VodActivity) ((VodActivity) getActivity()).closeFilter();
     }
 
     @Override
@@ -70,7 +72,7 @@ public class FolderFragment extends BaseFragment {
     public void openFolder(String typeId, HashMap<String, String> extend) {
         TypeFragment next = TypeFragment.newInstance(getKey(), typeId, mType.getStyle(), new HashMap<>(extend), mType.isFolder());
         FragmentTransaction ft = getChildFragmentManager().beginTransaction();
-        Optional.ofNullable(getParent()).ifPresent(VodActivity::closeFilter);
+        closeHostFilter();
         Optional.ofNullable(getChild()).ifPresent(ft::hide);
         ft.add(R.id.container, next);
         ft.addToBackStack(null);
@@ -79,6 +81,26 @@ public class FolderFragment extends BaseFragment {
 
     public void toggleFilter(boolean visible) {
         Optional.ofNullable(getChild()).ifPresent(f -> f.toggleFilter(visible));
+    }
+
+    /** 第一排海报按上键：交给宿主把焦点收回当前分类胶囊。 */
+    public boolean onFirstRowUp() {
+        if (getActivity() instanceof ContentFocusHost) return ((ContentFocusHost) getActivity()).onFirstRowUp();
+        return false;
+    }
+
+    /** 胶囊按 ↓：进入当前分类第一张海报。 */
+    public boolean focusFirstPoster() {
+        TypeFragment child = getChild();
+        if (child != null) return child.focusFirstPoster();
+        // 子 Fragment 的 commit 尚未执行完：吃掉这次按键，下一帧再补一次焦点。
+        if (getView() != null) getView().post(() -> Optional.ofNullable(getChild()).ifPresent(TypeFragment::focusFirstPoster));
+        return true;
+    }
+
+    /** 横向切换分类：选中项复位到左上角第一张海报，但不抢焦点。 */
+    public void resetToFirstPoster() {
+        Optional.ofNullable(getChild()).ifPresent(TypeFragment::resetToFirstPoster);
     }
 
     public void onRefresh() {

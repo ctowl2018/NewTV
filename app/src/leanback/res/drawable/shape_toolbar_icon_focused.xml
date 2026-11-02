@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 焦点态：半透明白色块（@color/focus_block），不再使用描边线框 -->
+<!-- 首页工具栏图标：遥控器聚焦态用半透明白色圆形块，与全局焦点样式一致 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+
+    <solid android:color="@color/focus_block" />
+
+</shape>

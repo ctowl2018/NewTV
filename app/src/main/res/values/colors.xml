@@ -25,6 +25,11 @@
     <color name="white_70">#B3FFFFFF</color>
     <color name="white_80">#CCFFFFFF</color>
     <color name="white_90">#E6FFFFFF</color>
-    <color name="splash_background">#141218</color>
+    <color name="background">#141414</color>
+    <color name="splash_background">#141414</color>
+    <!-- 启动欢迎页底色：与 App 主背景同色，系统启动窗口 → 闪屏层 → 首页全程不跳色 -->
+    <color name="startup_background">#141414</color>
+    <!-- 自适应图标背景：与启动页底色同色，遮罩裁切不露色差 -->
+    <color name="ic_launcher_background">#0C1219</color>
 
 </resources>

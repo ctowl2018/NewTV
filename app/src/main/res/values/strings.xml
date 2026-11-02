@@ -2,6 +2,7 @@
 
     <!-- App -->
     <string name="app_name">TV</string>
+    <string name="back_exit_hint">再次按下返回键退出应用</string>
 
     <!-- Live -->
     <string name="live_pass">Pass</string>
@@ -46,7 +47,7 @@
     <string name="play_edition">Title</string>
     <string name="play_chapter">Chapter</string>
     <string name="play_disc_menu">Top menu</string>
-    <string name="play_disc_menu_unavailable">Cannot open this disc menu. For BD-J, install Java from Settings → Modules first.</string>
+    <string name="play_disc_menu_unavailable">Cannot open this disc menu. BD-J playback requires a Java runtime.</string>
     <string name="play_disc_menu_timeout">Disc menu did not open; try again</string>
     <string name="play_scale">Default</string>
     <string name="play_config">Config</string>
@@ -256,14 +257,9 @@
     <!-- Setting -->
     <string name="setting_vod">Vod</string>
     <string name="setting_live">Live</string>
-    <string name="setting_wall">Wallpaper</string>
     <string name="setting_player">Player setting</string>
-    <string name="setting_module">Modules</string>
     <string name="setting_danmaku">Danmaku setting</string>
     <string name="setting_incognito">Incognito (no history)</string>
-    <string name="setting_theme_color">Theme color</string>
-    <string name="setting_auto">Auto</string>
-    <string name="setting_custom">Custom</string>
     <string name="setting_size">Posters per row</string>
     <string name="setting_doh">DoH</string>
     <string name="setting_proxy">Proxy</string>
@@ -297,7 +293,7 @@
     <string name="module_current">Installed</string>
     <string name="module_available">Update available</string>
     <string name="module_not_installed">Not installed</string>
-    <string name="error_module_missing">%1$s is not installed. Download it in Module management.</string>
+    <string name="error_module_missing">%1$s is not installed and cannot be used.</string>
     <string name="module_unsupported">Not supported on this device</string>
     <string name="module_restart">Please restart the app</string>
     <string name="module_restart_action">Restart</string>
@@ -305,7 +301,7 @@
     <string name="module_downloading">Downloading…</string>
     <string name="module_download">Download</string>
     <string name="module_update">Update</string>
-    <string name="module_update_notice">New versions available for %1$s. Update in Module management.</string>
+    <string name="module_update_notice">New versions available for %1$s.</string>
 
     <string name="module_unavailable">Not available yet</string>
     <string name="module_confirm_install">Confirm installation in the system dialog; long press to cancel</string>
@@ -617,26 +613,9 @@
         <item>1440p</item>
     </string-array>
     <string name="player_verbose_log">Verbose log</string>
-    <string name="setting_ffmpeg">FFmpeg extension</string>
     <string name="ffmpeg_available">Available</string>
     <string name="ffmpeg_unavailable">Unavailable</string>
 
-    <string-array name="select_theme">
-        <item>Default</item>
-        <item>Follow wallpaper</item>
-        <item>Purple</item>
-        <item>Indigo</item>
-        <item>Blue</item>
-        <item>Cyan</item>
-        <item>Teal</item>
-        <item>Green</item>
-        <item>Light green</item>
-        <item>Orange</item>
-        <item>Red</item>
-        <item>Pink</item>
-        <item>Magenta</item>
-        <item>Brown</item>
-    </string-array>
     <string name="search_hot_movie">Popular movies</string>
     <string name="search_hot_tv">Popular series</string>
     <string name="setting_search_suggest">Online suggestions</string>

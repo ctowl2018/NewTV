@@ -27,9 +27,25 @@ final class ViewModelSearchRunner {
     }
 
     void start(List<Site> sites, Function<Site, Callable<Result>> taskFactory, Consumer<Result> onResult) {
+        start(sites, taskFactory, onResult, null);
+    }
+
+    /**
+     * @param onComplete 所有站点都返回后回调一次（用于判定「结果为空」）；被新的搜索取代或 stop 时不会回调。
+     */
+    void start(List<Site> sites, Function<Site, Callable<Result>> taskFactory, Consumer<Result> onResult, Runnable onComplete) {
         int current = nextEpoch();
         cancelFutures();
-        sites.forEach(site -> execute(taskFactory.apply(site), current, onResult));
+        int total = sites.size();
+        if (total == 0) {
+            if (onComplete != null) onComplete.run();
+            return;
+        }
+        AtomicInteger remaining = new AtomicInteger(total);
+        sites.forEach(site -> execute(taskFactory.apply(site), current, result -> {
+            onResult.accept(result);
+            if (remaining.decrementAndGet() == 0 && onComplete != null) onComplete.run();
+        }));
     }
 
     void stop() {
@@ -52,6 +68,10 @@ final class ViewModelSearchRunner {
         future.addCallback(Task.callback(
                 result -> {
                     if (epoch.get() == current) onResult.accept(result);
+                },
+                // 失败/超时也回传一个空结果：保证每个站点都被计为「已返回」，完成回调才能可靠触发。
+                error -> {
+                    if (epoch.get() == current) onResult.accept(Result.empty());
                 }
         ), MoreExecutors.directExecutor());
     }

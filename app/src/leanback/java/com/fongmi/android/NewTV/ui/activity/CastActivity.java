@@ -59,10 +59,6 @@ public class CastActivity extends PlaybackActivity implements VodInput.Listener 
     private long position;
     private int scale;
 
-    @Override
-    protected boolean customWall() {
-        return false;
-    }
 
     @Override
     protected ViewBinding getBinding() {

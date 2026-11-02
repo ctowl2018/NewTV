@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  顶部品牌行（与首页标题栏一致，但不含站点名称、不含导航栏胶囊）。
+  用于收藏 / 搜索 / 播放详情等页面：logo（站点选择）+ 搜索 / 收藏 / 连接 / 设置 + 时钟。
+  logo 区域为可聚焦容器，选中时由 ToolbarHelper 慢闪提示，无选中背景。
+-->
+<androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="24dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="6dp">
+
+        <!-- 站点选择区域：logo 图标 + 「影视 Videos」字标整体作为一个静态品牌展示；
+             非首页/分类页不触发站点菜单、不做慢闪焦点特效，故设为不可聚焦 -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/logo"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:gravity="center_vertical"
+            android:focusable="false"
+            android:focusableInTouchMode="false"
+            android:orientation="horizontal">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:id="@+id/logoIcon"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:contentDescription="@string/app_name"
+                android:focusable="false"
+                android:focusableInTouchMode="false"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_logo" />
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:id="@+id/logoWord"
+                android:layout_width="wrap_content"
+                android:layout_height="17dp"
+                android:layout_marginStart="8dp"
+                android:adjustViewBounds="true"
+                android:focusable="false"
+                android:focusableInTouchMode="false"
+                android:importantForAccessibility="no"
+                android:scaleType="fitCenter"
+                android:src="@drawable/logo_word" />
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <!-- 站点名称：与首页标题栏一致（位置/间距/字体/颜色）。默认无文本（仅作弹性间隔），
+             搜索结果页会在此承载「搜索 xxx 的结果」标题 -->
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="14dp"
+            android:layout_marginEnd="16dp"
+            android:ellipsize="marquee"
+            android:focusable="false"
+            android:focusableInTouchMode="false"
+            android:singleLine="true"
+            android:textColor="@color/white"
+            android:textSize="16sp" />
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/funcSearch"
+            style="@style/HomeToolbarIcon"
+            android:layout_marginEnd="2dp"
+            android:contentDescription="@string/home_search"
+            android:nextFocusRight="@id/funcKeep"
+            android:src="@drawable/ic_toolbar_search" />
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/funcKeep"
+            style="@style/HomeToolbarIcon"
+            android:layout_marginEnd="2dp"
+            android:contentDescription="@string/home_keep"
+            android:nextFocusLeft="@id/funcSearch"
+            android:nextFocusRight="@id/funcConnect"
+            android:src="@drawable/ic_toolbar_star" />
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/funcConnect"
+            style="@style/HomeToolbarIcon"
+            android:layout_marginEnd="2dp"
+            android:contentDescription="@string/home_push"
+            android:nextFocusLeft="@id/funcKeep"
+            android:nextFocusRight="@id/funcSetting"
+            android:src="@drawable/ic_toolbar_cast" />
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/funcSetting"
+            style="@style/HomeToolbarIcon"
+            android:contentDescription="@string/home_setting"
+            android:nextFocusLeft="@id/funcConnect"
+            android:src="@drawable/ic_toolbar_setting" />
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/clock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:fontFamily="sans-serif-black"
+            android:fontFeatureSettings="tnum"
+            android:textColor="@color/white"
+            android:textSize="20sp" />
+
+    </androidx.appcompat.widget.LinearLayoutCompat>
+</androidx.appcompat.widget.LinearLayoutCompat>

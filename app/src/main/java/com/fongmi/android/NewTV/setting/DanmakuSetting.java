@@ -14,6 +14,9 @@ import com.github.catvod.utils.Prefers;
 
 public class DanmakuSetting {
 
+    /** 默认弹幕搜索接口。 */
+    public static final String DEFAULT_API_URL = "http://***REMOVED***";
+
     private static final float MIN_TEXT_SCALE = 0.5f;
     private static final float MAX_TEXT_SCALE = 3.0f;
     private static final float MIN_TRANSPARENCY = 0.0f;
@@ -41,7 +44,7 @@ public class DanmakuSetting {
     private static final int MAX_MAX_FIXED_LINES = 10;
 
     public static boolean isLoad() {
-        return Prefers.getBoolean("danmaku_load");
+        return Prefers.getBoolean("danmaku_load", true);
     }
 
     public static void putLoad(boolean danmakuLoad) {
@@ -75,7 +78,7 @@ public class DanmakuSetting {
     }
 
     public static String getApiUrl() {
-        return Prefers.getString("danmaku_api_url", "");
+        return Prefers.getString("danmaku_api_url", DEFAULT_API_URL);
     }
 
     public static void putApiUrl(String url) {

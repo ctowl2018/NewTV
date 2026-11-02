@@ -9,9 +9,7 @@ import androidx.viewbinding.ViewBinding;
 
 import com.fongmi.android.NewTV.BuildConfig;
 import com.fongmi.android.NewTV.R;
-import com.fongmi.android.NewTV.Updater;
 import com.fongmi.android.NewTV.api.config.VodConfig;
-import com.fongmi.android.NewTV.api.config.WallConfig;
 import com.fongmi.android.NewTV.bean.Config;
 import com.fongmi.android.NewTV.bean.Site;
 import com.fongmi.android.NewTV.databinding.ActivitySettingBinding;
@@ -21,7 +19,6 @@ import com.fongmi.android.NewTV.event.RefreshEvent;
 import com.fongmi.android.NewTV.impl.Callback;
 import com.fongmi.android.NewTV.impl.ConfigListener;
 import com.fongmi.android.NewTV.impl.SiteListener;
-import com.fongmi.android.NewTV.player.track.DecodeCodecSelector;
 import com.fongmi.android.NewTV.setting.PlayerSetting;
 import com.fongmi.android.NewTV.setting.Setting;
 import com.fongmi.android.NewTV.ui.base.BaseActivity;
@@ -45,10 +42,7 @@ import java.util.List;
 
 public class SettingActivity extends BaseActivity implements ConfigListener, SiteListener, DohDialog.Listener {
 
-    private static final int[] THEME_COLORS = {-1, 0, 0xFF6750A4, 0xFF3949AB, 0xFF1E88E5, 0xFF00ACC1, 0xFF00897B, 0xFF43A047, 0xFF7CB342, 0xFFFB8C00, 0xFFE53935, 0xFFD81B60, 0xFF8E24AA, 0xFF6D4C41};
-
     private ActivitySettingBinding mBinding;
-    private String[] theme;
     private String[] size;
 
     public static void start(Activity activity) {
@@ -74,7 +68,6 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
     protected void initView(Bundle savedInstanceState) {
         mBinding.vod.requestFocus();
         mBinding.vodUrl.setText(VodConfig.getDesc());
-        mBinding.wallUrl.setText(WallConfig.getDesc());
         mBinding.versionText.setText(BuildConfig.VERSION_NAME);
         setCacheText();
         setOtherText();
@@ -84,8 +77,6 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         mBinding.dohText.setText(getDohList()[getDohIndex()]);
         mBinding.incognitoText.setText(Setting.getSwitch(Setting.isIncognito()));
         mBinding.searchSuggestText.setText(Setting.getSwitch(Setting.isSearchSuggest()));
-        mBinding.themeText.setText((theme = ResUtil.getStringArray(R.array.select_theme))[themeIndex()]);
-        mBinding.ffmpegText.setText(ResUtil.getString(DecodeCodecSelector.FFMPEG_EXTENSION_USABLE ? R.string.ffmpeg_available : R.string.ffmpeg_unavailable));
         mBinding.sizeText.setText((size = ResUtil.getStringArray(R.array.select_size))[PlayerSetting.getSize()]);
     }
 
@@ -102,25 +93,17 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
     protected void initEvent() {
         mBinding.vod.setOnClickListener(this::onVod);
         mBinding.doh.setOnClickListener(this::setDoh);
-        mBinding.wall.setOnClickListener(this::onWall);
         mBinding.size.setOnClickListener(this::setSize);
         mBinding.cache.setOnClickListener(this::onCache);
-        mBinding.theme.setOnClickListener(this::setTheme);
         mBinding.backup.setOnClickListener(this::onBackup);
         mBinding.player.setOnClickListener(this::onPlayer);
-        mBinding.module.setOnClickListener(view -> ModuleActivity.start(this));
         mBinding.danmaku.setOnClickListener(this::onDanmaku);
         mBinding.restore.setOnClickListener(this::onRestore);
-        mBinding.version.setOnClickListener(this::onVersion);
         mBinding.vod.setOnLongClickListener(this::onVodEdit);
         mBinding.vodHome.setOnClickListener(this::onVodHome);
-        mBinding.wall.setOnLongClickListener(this::onWallEdit);
         mBinding.incognito.setOnClickListener(this::setIncognito);
         mBinding.searchSuggest.setOnClickListener(this::setSearchSuggest);
         mBinding.vodHistory.setOnClickListener(this::onVodHistory);
-        mBinding.wallDefault.setOnClickListener(this::setWallDefault);
-        mBinding.wallRefresh.setOnClickListener(this::setWallRefresh);
-        mBinding.wallRefresh.setOnLongClickListener(this::onWallHistory);
     }
 
     @Override
@@ -130,15 +113,7 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
     }
 
     private void load(Config config) {
-        switch (config.getType()) {
-            case 0:
-                VodConfig.load(config, getCallback());
-                break;
-            case 2:
-                Setting.putWall(0);
-                WallConfig.load(config, getCallback());
-                break;
-        }
+        if (config.getType() == 0) VodConfig.load(config, getCallback());
     }
 
     private Callback getCallback() {
@@ -171,17 +146,8 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         ConfigDialog.create().vod().show(this);
     }
 
-    private void onWall(View view) {
-        ConfigDialog.create().wall().show(this);
-    }
-
     private boolean onVodEdit(View view) {
         ConfigDialog.create().vod().edit().show(this);
-        return true;
-    }
-
-    private boolean onWallEdit(View view) {
-        ConfigDialog.create().wall().edit().show(this);
         return true;
     }
 
@@ -199,39 +165,6 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
 
     private void onDanmaku(View view) {
         SettingDanmakuActivity.start(this);
-    }
-
-    private void onVersion(View view) {
-        Updater.get().start(this, true);
-    }
-
-    private void setWallDefault(View view) {
-        Setting.putWall(Setting.getWall() == 4 ? 1 : Setting.getWall() + 1);
-        Setting.putWallType(0);
-        ConfigEvent.wall();
-    }
-
-    private void setWallRefresh(View view) {
-        Setting.putWall(0);
-        WallConfig.get().load(getCallback());
-    }
-
-    private boolean onWallHistory(View view) {
-        HistoryDialog.create().wall().show(this);
-        return true;
-    }
-
-    private int themeIndex() {
-        int current = Setting.getThemeColor();
-        for (int i = 0; i < THEME_COLORS.length; i++) if (THEME_COLORS[i] == current) return i;
-        return 0;
-    }
-
-    private void setTheme(View view) {
-        int next = (themeIndex() + 1) % THEME_COLORS.length;
-        Setting.putThemeColor(THEME_COLORS[next]);
-        RefreshEvent.theme();
-        mBinding.themeText.setText(theme[next]);
     }
 
     private void setSearchSuggest(View view) {
@@ -303,14 +236,12 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
 
     private void initConfig() {
         VodConfig.get().init().load(getCallback());
-        WallConfig.get().init().load();
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onConfigEvent(ConfigEvent event) {
         if (event.type() != ConfigEvent.Type.COMMON) return;
         mBinding.vodUrl.setText(VodConfig.getDesc());
-        mBinding.wallUrl.setText(WallConfig.getDesc());
     }
 
 }

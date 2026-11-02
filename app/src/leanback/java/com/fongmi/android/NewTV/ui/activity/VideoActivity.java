@@ -72,6 +72,7 @@ import com.fongmi.android.NewTV.ui.adapter.QualityAdapter;
 import com.fongmi.android.NewTV.ui.adapter.QuickAdapter;
 import com.fongmi.android.NewTV.ui.custom.VodInput;
 import com.fongmi.android.NewTV.ui.custom.CustomMovement;
+import com.fongmi.android.NewTV.ui.helper.ToolbarHeader;
 import com.fongmi.android.NewTV.ui.dialog.ChapterDialog;
 import com.fongmi.android.NewTV.ui.dialog.ContentDialog;
 import com.fongmi.android.NewTV.ui.dialog.DanmakuDialog;
@@ -106,6 +107,7 @@ import java.util.Objects;
 public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, VodInput.Listener, ParseDialog.Listener, ArrayAdapter.OnClickListener, FlagAdapter.OnClickListener, EpisodeAdapter.OnClickListener, QualityAdapter.OnClickListener, QuickAdapter.OnClickListener, Clock.Callback {
 
     private ActivityVideoBinding mBinding;
+    private ToolbarHeader mHeader;
     private VideoViewModel mViewModel;
     private VodPlaybackController mVod;
     private FlagAdapter mFlagAdapter;
@@ -283,6 +285,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     @Override
     protected void initView(Bundle savedInstanceState) {
         super.initView(savedInstanceState);
+        mHeader = ToolbarHeader.bind(this, mBinding.toolbar);
         mFrameParams = mBinding.video.getLayoutParams();
         mClock = Clock.create(mBinding.widget.clock);
         mInput = VodInput.create(this, this);
@@ -351,6 +354,18 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
                 if (mEpisodeAdapter.getItemCount() > 20 && position > 1) mBinding.episode.setSelectedPosition((position - 2) * 20);
             }
         });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (mHeader != null) mHeader.onResume();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (mHeader != null) mHeader.onPause();
     }
 
     private void setRecyclerView() {

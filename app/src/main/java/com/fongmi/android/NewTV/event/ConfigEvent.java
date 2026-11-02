@@ -16,10 +16,6 @@ public record ConfigEvent(Type type) {
         EventBus.getDefault().post(new ConfigEvent(Type.LIVE));
     }
 
-    public static void wall() {
-        EventBus.getDefault().post(new ConfigEvent(Type.WALL));
-    }
-
     public static void boot() {
         EventBus.getDefault().post(new ConfigEvent(Type.BOOT));
     }
@@ -33,6 +29,6 @@ public record ConfigEvent(Type type) {
     }
 
     public enum Type {
-        COMMON, VOD, LIVE, WALL, BOOT
+        COMMON, VOD, LIVE, BOOT
     }
 }

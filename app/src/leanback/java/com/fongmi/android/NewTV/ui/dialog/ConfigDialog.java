@@ -13,7 +13,6 @@ import androidx.viewbinding.ViewBinding;
 
 import com.fongmi.android.NewTV.R;
 import com.fongmi.android.NewTV.api.config.VodConfig;
-import com.fongmi.android.NewTV.api.config.WallConfig;
 import com.fongmi.android.NewTV.bean.Config;
 import com.fongmi.android.NewTV.databinding.DialogConfigBinding;
 import com.fongmi.android.NewTV.event.ServerEvent;
@@ -46,11 +45,6 @@ public class ConfigDialog extends BaseAlertDialog {
 
     public ConfigDialog live() {
         type = 1;
-        return this;
-    }
-
-    public ConfigDialog wall() {
-        type = 2;
         return this;
     }
 
@@ -99,11 +93,7 @@ public class ConfigDialog extends BaseAlertDialog {
     }
 
     private String getUrl() {
-        return switch (type) {
-            case 0 -> VodConfig.getUrl();
-            case 2 -> WallConfig.getUrl();
-            default -> "";
-        };
+        return type == 0 ? VodConfig.getUrl() : "";
     }
 
     private void onChoose(View view) {

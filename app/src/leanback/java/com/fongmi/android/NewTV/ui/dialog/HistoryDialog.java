@@ -31,11 +31,6 @@ public class HistoryDialog extends BaseAlertDialog implements ConfigAdapter.OnCl
         return this;
     }
 
-    public HistoryDialog wall() {
-        type = 2;
-        return this;
-    }
-
     public HistoryDialog readOnly() {
         readOnly = true;
         return this;

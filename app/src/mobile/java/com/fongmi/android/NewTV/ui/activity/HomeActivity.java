@@ -19,9 +19,7 @@ import androidx.viewbinding.ViewBinding;
 
 import com.fongmi.android.NewTV.App;
 import com.fongmi.android.NewTV.R;
-import com.fongmi.android.NewTV.Updater;
 import com.fongmi.android.NewTV.api.config.VodConfig;
-import com.fongmi.android.NewTV.api.config.WallConfig;
 import com.fongmi.android.NewTV.api.node.NodeRuntime;
 import com.fongmi.android.NewTV.bean.Config;
 import com.fongmi.android.NewTV.databinding.ActivityHomeBinding;
@@ -38,7 +36,6 @@ import com.fongmi.android.NewTV.server.Server;
 import com.fongmi.android.NewTV.service.PlaybackService;
 import com.fongmi.android.NewTV.ui.base.BaseActivity;
 import com.fongmi.android.NewTV.ui.custom.FragmentStateManager;
-import com.fongmi.android.NewTV.ui.fragment.ModuleFragment;
 import com.fongmi.android.NewTV.ui.fragment.SettingDanmakuFragment;
 import com.fongmi.android.NewTV.ui.fragment.SettingDecodeFragment;
 import com.fongmi.android.NewTV.ui.fragment.SettingFragment;
@@ -103,7 +100,6 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
         orientation = getResources().getConfiguration().orientation;
         mBinding.navigation.setOnItemSelectedListener(this);
         initFragment(savedInstanceState);
-        Updater.get().start(this, false);
         checkPermission();
     }
 
@@ -146,7 +142,6 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
             case 3 -> SettingDanmakuFragment.newInstance();
             case 4 -> SettingPreloadFragment.newInstance();
             case 5 -> SettingDecodeFragment.newInstance();
-            case 6 -> ModuleFragment.newInstance();
             default -> null;
         };
     }
@@ -162,7 +157,6 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
 
     private void initConfig() {
         VodConfig.get().init().load(getCallback());
-        WallConfig.get().init();
     }
 
     private Callback getCallback() {
@@ -205,7 +199,6 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onRefreshEvent(RefreshEvent event) {
-        if (event.getType() == RefreshEvent.Type.THEME) recreate();
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
