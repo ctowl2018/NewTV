@@ -1,4 +1,4 @@
-name: Build Leanback Debug APK
+name: Build Leanback Release APK
 
 on:
   push:
@@ -36,7 +36,7 @@ jobs:
           # （仓库稳定包名为 platforms;android-37.0，而非 android-37）
           sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;36.0.0"
 
-      # 项目在配置阶段强制读取 local.properties，且 debug 变体也使用 release 签名配置，
+      # 项目在配置阶段强制读取 local.properties，且 release 变体使用 release 签名配置，
       # 因此云端必须提供该文件。这里生成一个仅用于 CI 的临时 keystore，不泄露真实签名。
       - name: Generate local.properties (CI signing)
         run: |
@@ -56,12 +56,27 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build leanback debug
-        run: ./gradlew :app:assembleLeanbackDebug -Pandroid.overridePathCheck=true --no-daemon
+      - name: Build leanback release
+        run: ./gradlew :app:assembleLeanbackRelease -Pandroid.overridePathCheck=true --no-daemon
 
-      - name: Upload APK artifact
+      - name: Upload APK artifacts
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: app-leanback-arm64-v8a-debug
-          path: app/build/outputs/apk/leanback/debug/app-leanback-arm64-v8a-debug.apk
+          name: app-leanback-release
+          path: app/build/outputs/apk/leanback/release/*.apk
+
+      # 每次成功构建自动创建一个 GitHub Release，并附带两个 ABI 的正式版 APK。
+      # 使用 github.run_number 作为唯一 tag，避免重复创建冲突。
+      - name: Create GitHub Release
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: NewTV Release ${{ github.run_number }}
+          files: |
+            app/build/outputs/apk/leanback/release/leanback-arm64_v8a.apk
+            app/build/outputs/apk/leanback/release/leanback-armeabi_v7a.apk
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
