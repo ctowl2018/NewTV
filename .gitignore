@@ -64,3 +64,6 @@ __pycache__/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# 构建产物（已另存于 app/build/outputs）
+dist/
