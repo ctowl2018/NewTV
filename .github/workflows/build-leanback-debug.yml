@@ -19,17 +19,20 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      # GitHub ubuntu runner 已预装 Android SDK（含 cmdline-tools/latest）。
-      # android-actions/setup-android@v3 在新 runner 上会因预装 sdkmanager 版本校验失败、
-      # 并误装已废弃的 'tools' 包（Failed to find package 'tools'）而报错，
-      # 因此这里直接使用预装 SDK 安装所需平台/构建工具。
+      # GitHub runner 预装的 sdkmanager 索引较旧，无法识别 platforms;android-37，
+      # 因此这里自下载官方 commandlinetools 并安装所需平台/构建工具。
       - name: Install Android SDK packages
         run: |
-          export ANDROID_HOME=/usr/local/lib/android/sdk
-          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+          SDK="$HOME/android-sdk"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -sL -o /tmp/ct.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q /tmp/ct.zip -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          export ANDROID_HOME="$SDK"
+          export PATH="$PATH:$SDK/cmdline-tools/latest/bin"
           yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platform-tools" "platforms;android-37" "build-tools;36.0.0"
-          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
 
       # 项目在配置阶段强制读取 local.properties，且 debug 变体也使用 release 签名配置，
       # 因此云端必须提供该文件。这里生成一个仅用于 CI 的临时 keystore，不泄露真实签名。
