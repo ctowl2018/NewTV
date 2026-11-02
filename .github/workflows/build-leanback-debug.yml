@@ -1,0 +1,58 @@
+name: Build Leanback Debug APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platform-tools" "platforms;android-37" "build-tools;36.0.0"
+
+      # 项目在配置阶段强制读取 local.properties，且 debug 变体也使用 release 签名配置，
+      # 因此云端必须提供该文件。这里生成一个仅用于 CI 的临时 keystore，不泄露真实签名。
+      - name: Generate local.properties (CI signing)
+        run: |
+          keytool -genkeypair -v -keystore "$HOME/cloud.keystore" -alias cloud \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass cloudpass123 -keypass cloudpass123 \
+            -dname "CN=NewTV, OU=CI, O=NewTV, L=CI, S=CI, C=CN"
+          {
+            echo "sdk.dir=$ANDROID_HOME"
+            echo "cmake.dir=$ANDROID_HOME/cmake"
+            echo "storeFile=$HOME/cloud.keystore"
+            echo "keyAlias=cloud"
+            echo "storePassword=cloudpass123"
+            echo "keyPassword=cloudpass123"
+          } > local.properties
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build leanback debug
+        run: ./gradlew :app:assembleLeanbackDebug -Pandroid.overridePathCheck=true --no-daemon
+
+      - name: Upload APK artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-leanback-arm64-v8a-debug
+          path: app/build/outputs/apk/leanback/debug/app-leanback-arm64-v8a-debug.apk
