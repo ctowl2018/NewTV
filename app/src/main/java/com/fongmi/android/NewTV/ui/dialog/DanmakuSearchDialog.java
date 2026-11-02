@@ -18,6 +18,7 @@ import androidx.fragment.app.FragmentManager;
 import androidx.media3.common.MediaMetadata;
 import androidx.viewbinding.ViewBinding;
 
+import com.fongmi.android.NewTV.App;
 import com.fongmi.android.NewTV.R;
 import com.fongmi.android.NewTV.api.DanmakuApi;
 import com.fongmi.android.NewTV.bean.Danmaku;
@@ -40,6 +41,7 @@ public final class DanmakuSearchDialog extends BaseBottomSheetDialog implements 
     private DialogDanmakuSearchBinding binding;
     private PlayerManager player;
     private boolean keywordInitialized;
+    private boolean autoSearch;
 
     public DanmakuSearchDialog() {
         this.adapter = new DanmakuAdapter(this);
@@ -47,6 +49,12 @@ public final class DanmakuSearchDialog extends BaseBottomSheetDialog implements 
 
     public static DanmakuSearchDialog create() {
         return new DanmakuSearchDialog();
+    }
+
+    /** 打开后用预填的关键词立即搜索一次（控制条弹幕浮层的放大镜入口）。 */
+    public DanmakuSearchDialog autoSearch() {
+        this.autoSearch = true;
+        return this;
     }
 
     public void show(FragmentActivity activity) {
@@ -92,7 +100,12 @@ public final class DanmakuSearchDialog extends BaseBottomSheetDialog implements 
         binding.keyword.setText(getTitle());
         binding.keyword.setSelection(binding.keyword.length());
         keywordInitialized = true;
-        Util.showKeyboard(binding.keyword);
+        if (autoSearch) {
+            autoSearch = false;
+            if (!getKeyword().isEmpty()) App.post(this::search);
+        } else {
+            Util.showKeyboard(binding.keyword);
+        }
     }
 
     @Override

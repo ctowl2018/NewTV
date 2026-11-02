@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  控制条图标着色：统一纯白（聚焦与否同色）。
+  状态区分交给「焦点高亮块」本身，图标不再用透明度做第二套明暗，避免整排按钮发灰。
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/white" />
+</selector>

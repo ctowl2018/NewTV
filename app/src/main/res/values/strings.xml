@@ -35,6 +35,7 @@
     <string name="play_other">Other</string>
     <string name="play_next">Next</string>
     <string name="play_prev">Prev</string>
+    <string name="play_pause">Play/Pause</string>
     <string name="play_stop">Stop</string>
     <string name="play_repeat">Repeat</string>
     <string name="play_forward">→</string>
@@ -50,6 +51,7 @@
     <string name="play_disc_menu_unavailable">Cannot open this disc menu. BD-J playback requires a Java runtime.</string>
     <string name="play_disc_menu_timeout">Disc menu did not open; try again</string>
     <string name="play_scale">Default</string>
+    <string name="play_scale_label">Aspect</string>
     <string name="play_config">Config</string>
     <string name="play_change">Change</string>
     <string name="play_invert">Invert</string>
@@ -348,6 +350,7 @@
     <string name="danmaku_api">Search API</string>
     <string name="danmaku_auto_load">Auto search</string>
     <string name="danmaku_spider_first">Spider first</string>
+    <string name="danmaku_disabled_hint">若使用弹幕，请在设置中开启</string>
 
     <!-- Search -->
     <string name="search_keyword">Keywords…</string>

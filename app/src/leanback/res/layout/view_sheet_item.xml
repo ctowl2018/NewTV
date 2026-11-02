@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  浮层列表的单行条目。
+
+  外层 FrameLayout 负责行高（44dp）与焦点背景（selector_sheet_chip），文字用 gravity=center 垂直居中。
+  addStatesFromChildren 让文字拿到焦点时把状态并给容器，selector_sheet_chip 的 state_focused 才会亮。
+
+  关键（修焦点框越界/被裁剪）：文字（= 实际聚焦的视图）用 match_parent 撑满整行高度，
+  而不是 wrap_content。否则聚焦视图只有文字那么高，滚动对齐时会把「文字」贴到内容边界，
+  而焦点框画在更高的整行上、多出的部分越出内容裁剪区被切掉（列表首/末行焦点框顶部被裁）。
+  让聚焦视图 = 整行，滚动对齐的才是整行，焦点框就始终完整落在弹层内。
+  FrameLayout 垂直 padding 固定 0（避免随焦点态变化导致文字跳动），水平 padding 仅定文字内缩。
+
+  「当前项」用 activated 标色（@color/selector_sheet_text），不用 selected ——
+  selected 会让该行永久跑马灯，未聚焦的行也在动会非常吵。
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="44dp"
+    android:addStatesFromChildren="true"
+    android:background="@drawable/selector_sheet_chip"
+    android:clipChildren="false"
+    android:clickable="false"
+    android:focusable="false"
+    android:paddingStart="12dp"
+    android:paddingTop="0dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="0dp">
+
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/sheetItemText"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:ellipsize="marquee"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:gravity="center_vertical"
+        android:includeFontPadding="false"
+        android:marqueeRepeatLimit="marquee_forever"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:singleLine="true"
+        android:textColor="@color/selector_sheet_text"
+        android:textSize="15sp"
+        tools:text="第 12 集" />
+
+</FrameLayout>

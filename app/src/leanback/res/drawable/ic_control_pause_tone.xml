@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  暂停按钮 · 品牌同源配色（参考启动页橙色三角：橙 #E97022 + 奶油 #FFDDAB 的 45° 折叠面）。
+  两根 12×34dp 圆角竖条，间距 9dp；折线从条左上角 2dp 处以 45° 斜到右边缘 12.5dp，
+  折线以上为奶油渐变、以下为橙色渐变，与播放三角的折光方向一致。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+  <!-- 左条 -->
+  <group>
+    <clip-path android:pathData="M10.1,7 H16.9 A2.6,2.6 0 0 1 19.5,9.6 V38.4 A2.6,2.6 0 0 1 16.9,41 H10.1 A2.6,2.6 0 0 1 7.5,38.4 V9.6 A2.6,2.6 0 0 1 10.1,7 Z" />
+    <path android:pathData="M0,0h48v48h-48z">
+      <aapt:attr name="android:fillColor">
+        <gradient
+            android:endColor="#E97022"
+            android:endX="0"
+            android:endY="41"
+            android:startColor="#FB9350"
+            android:startX="0"
+            android:startY="7"
+            android:type="linear" />
+      </aapt:attr>
+    </path>
+    <path android:pathData="M7.5,9.4 L19.5,18.8 L19.5,7 L7.5,7 Z">
+      <aapt:attr name="android:fillColor">
+        <gradient
+            android:endColor="#FFD69E"
+            android:endX="19.5"
+            android:endY="0"
+            android:startColor="#FFF5DC"
+            android:startX="7.5"
+            android:startY="0"
+            android:type="linear" />
+      </aapt:attr>
+    </path>
+  </group>
+  <!-- 右条 -->
+  <group>
+    <clip-path android:pathData="M31.1,7 H37.9 A2.6,2.6 0 0 1 40.5,9.6 V38.4 A2.6,2.6 0 0 1 37.9,41 H31.1 A2.6,2.6 0 0 1 28.5,38.4 V9.6 A2.6,2.6 0 0 1 31.1,7 Z" />
+    <path android:pathData="M0,0h48v48h-48z">
+      <aapt:attr name="android:fillColor">
+        <gradient
+            android:endColor="#E97022"
+            android:endX="0"
+            android:endY="41"
+            android:startColor="#FB9350"
+            android:startX="0"
+            android:startY="7"
+            android:type="linear" />
+      </aapt:attr>
+    </path>
+    <path android:pathData="M28.5,9.4 L40.5,18.8 L40.5,7 L28.5,7 Z">
+      <aapt:attr name="android:fillColor">
+        <gradient
+            android:endColor="#FFD69E"
+            android:endX="40.5"
+            android:endY="0"
+            android:startColor="#FFF5DC"
+            android:startX="28.5"
+            android:startY="0"
+            android:type="linear" />
+      </aapt:attr>
+    </path>
+  </group>
+</vector>

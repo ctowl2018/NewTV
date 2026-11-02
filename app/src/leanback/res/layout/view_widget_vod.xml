@@ -8,10 +8,15 @@
         android:id="@+id/top"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="16dp"
+        android:background="@drawable/bg_widget_top"
+        android:paddingStart="24dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="28dp"
         android:visibility="gone"
         tools:visibility="visible">
 
+        <!-- 片名：字号为上一代 30sp 的 90%（27sp），字重与「片头」按钮一致（bold + 去内边距 + 等宽数字） -->
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/title"
             style="@style/Shadow"
@@ -20,9 +25,12 @@
             android:layout_marginEnd="16dp"
             android:layout_toStartOf="@+id/clock"
             android:ellipsize="marquee"
+            android:fontFeatureSettings="tnum"
+            android:includeFontPadding="false"
             android:singleLine="true"
             android:textColor="@color/white"
-            android:textSize="20sp"
+            android:textSize="27sp"
+            android:textStyle="bold"
             tools:text="慶餘年第一季" />
 
         <com.google.android.material.textview.MaterialTextView

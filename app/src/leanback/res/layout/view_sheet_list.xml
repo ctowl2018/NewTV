@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  浮层里的单列列表（选集 / 倍速共用）。
+
+  与「弹幕搜索列表」同一套实现：普通 RecyclerView + LinearLayoutManager，
+  用 maxHeight 限制可视高度（由 SheetList.setRows 回写），超出一屏时按框架默认行为滚动
+  —— 焦点走到边缘后列表继续滚，到头即停、无回弹。不再使用 leanback 的窗口对齐。
+-->
+<com.fongmi.android.NewTV.ui.custom.CustomRecyclerView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/sheetList"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:overScrollMode="never"
+    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />

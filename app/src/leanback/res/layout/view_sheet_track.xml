@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  字幕 / 音轨 / 弹幕浮层的内容：标题行 + 右侧动作图标 + 轨道（弹幕）列表。
+
+  由 TrackSheet 统一绑定：动作图标的可见性按类型决定
+    · 字幕：搜索 / 本地文件 / 字幕内容 / 字幕设置
+    · 音轨、视轨：设置
+    · 弹幕：搜索 / 设置（本地文件与弹幕内容按钮已移除）
+-->
+<androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="4dp"
+        android:paddingBottom="8dp">
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/sheetTrackTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="@color/white"
+            android:textSize="15sp"
+            tools:text="选择字幕" />
+
+        <com.fongmi.android.NewTV.ui.custom.DialogActionView
+            android:id="@+id/sheetTrackSearch"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/selector_sheet_chip_round"
+            android:contentDescription="@string/dialog_action_search_danmaku"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:padding="7dp"
+            android:src="@drawable/ic_action_search"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
+        <com.fongmi.android.NewTV.ui.custom.DialogActionView
+            android:id="@+id/sheetTrackChoose"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/selector_sheet_chip_round"
+            android:contentDescription="@string/dialog_action_load_danmaku"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:padding="7dp"
+            android:src="@drawable/ic_action_choose"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
+        <com.fongmi.android.NewTV.ui.custom.DialogActionView
+            android:id="@+id/sheetTrackContent"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/selector_sheet_chip_round"
+            android:contentDescription="@string/content_title"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:padding="7dp"
+            android:src="@drawable/ic_action_content"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
+        <com.fongmi.android.NewTV.ui.custom.DialogActionView
+            android:id="@+id/sheetTrackSetting"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/selector_sheet_chip_round"
+            android:contentDescription="@string/subtitle_setting"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:padding="7dp"
+            android:src="@drawable/ic_danmaku_setting"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
+    </androidx.appcompat.widget.LinearLayoutCompat>
+
+    <com.fongmi.android.NewTV.ui.custom.CustomRecyclerView
+        android:id="@+id/sheetTrackRecycler"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:overScrollMode="never"
+        android:paddingBottom="4dp"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+        app:maxHeight="220dp"
+        tools:listitem="@layout/adapter_track" />
+
+</androidx.appcompat.widget.LinearLayoutCompat>

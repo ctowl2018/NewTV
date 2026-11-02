@@ -1,5 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  点播控制条按钮行。
+
+  直接展示（固定顺序）：播放/暂停、上集、下集 │ 弹幕、字幕、音轨、倍速、播放设置 …… 片头、片尾
+    · 「下集」与「弹幕」之间用 1dp 竖线分组；
+    · 「片头 / 片尾」永远贴最右侧，顺序不可变，用弹性留白把这一组推过去；
+    · 图标按钮统一 50x40dp 槽位（左右各 3dp 外边距 → 相邻间距恒为 6dp），播放键 60x48dp 稍大一档。
+
+  其余按钮（刷新、重播、循环、播放器引擎、解码、画面比例、视轨、版本、章节、主菜单、解析）
+  全部收进「播放设置」浮层，这里只保留在 hidden 容器中（visibility=gone）：
+  它们仍承接 VideoActivity 的点击、可见性与文案同步（例如画面比例的文字、片头片尾的时间），
+  删除会导致这些逻辑失效 —— 只隐藏，不删除。
+
+  焦点顺序：左右按视觉顺序显式绑定，两端封口（到头停住）；向上统一回进度条，向下停在自身。
+-->
 <com.fongmi.android.NewTV.ui.custom.CustomHorizontalScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -12,141 +28,196 @@
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/next"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:nextFocusLeft="@id/ending"
-            android:text="@string/play_next" />
+        <!-- 播放 / 暂停：按播放状态轮换图标（播放中=橙色暂停条，暂停=橙色三角） -->
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/playPause"
+            style="@style/ControlPlaySlot"
+            android:contentDescription="@string/play_pause"
+            android:nextFocusLeft="@id/playPause"
+            android:nextFocusRight="@id/prev"
+            android:src="@drawable/ic_control_play_tone" />
 
-        <com.google.android.material.textview.MaterialTextView
+        <!-- 上一集 / 下一集：与播放键贴紧成一组 -->
+        <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/prev"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:text="@string/play_prev" />
+            style="@style/ControlIconSlot"
+            android:layout_marginStart="1dp"
+            android:layout_marginEnd="1dp"
+            android:contentDescription="@string/play_prev"
+            android:nextFocusLeft="@id/playPause"
+            android:nextFocusRight="@id/next"
+            android:src="@drawable/ic_control_prev" />
 
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/parse"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:text="@string/parse"
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/next"
+            style="@style/ControlIconSlot"
+            android:layout_marginStart="1dp"
+            android:layout_marginEnd="1dp"
+            android:contentDescription="@string/play_next"
+            android:nextFocusLeft="@id/prev"
+            android:nextFocusRight="@id/danmaku"
+            android:src="@drawable/ic_control_next" />
+
+        <!-- 播放组与后续操作的分隔线 -->
+        <View style="@style/ControlDivider" />
+
+        <!-- 弹幕：开关两态由图标表达（勾 / 斜线） -->
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/danmaku"
+            style="@style/ControlIconSlot"
+            android:contentDescription="@string/danmaku"
+            android:nextFocusLeft="@id/next"
+            android:nextFocusRight="@id/text"
+            android:src="@drawable/selector_control_danmaku"
             android:visibility="gone"
+            app:tint="@color/selector_control_danmaku_tint"
             tools:visibility="visible" />
 
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/player"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:text="@string/play_exo" />
-
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/decoder"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:text="@string/decoder_action" />
-
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/reset"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:text="@string/play_reset" />
-
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/replay"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:text="@string/play_replay" />
-
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/repeat"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:text="@string/play_repeat" />
-
-        <com.fongmi.android.NewTV.ui.custom.CustomUpDownView
-            android:id="@+id/speed"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:fontFeatureSettings="tnum"
-            android:text="@string/play_speed" />
-
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/scale"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:text="@string/play_scale" />
-
+        <!-- 字幕轨道：图标 + 无文字，点击/上下键打开字幕轨选择 -->
         <com.fongmi.android.NewTV.ui.custom.CustomUpDownView
             android:id="@+id/text"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:tag="3"
-            android:text="@string/play_track_text" />
+            style="@style/ControlSlot"
+            android:contentDescription="@string/play_track_text"
+            android:drawableStart="@drawable/ic_control_subtitle"
+            android:drawablePadding="0dp"
+            android:drawableTint="@color/selector_control_icon_tint"
+            android:nextFocusLeft="@id/danmaku"
+            android:nextFocusRight="@id/audio"
+            android:tag="3" />
 
-        <com.google.android.material.textview.MaterialTextView
+        <!-- 音轨：单击打开音轨面板，上下键切换音轨 -->
+        <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/audio"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:tag="1"
-            android:text="@string/play_track_audio" />
+            style="@style/ControlIconSlot"
+            android:contentDescription="@string/play_track_audio"
+            android:nextFocusLeft="@id/text"
+            android:nextFocusRight="@id/speed"
+            android:src="@drawable/ic_control_audio"
+            android:tag="1" />
 
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/video"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:tag="2"
-            android:text="@string/play_track_video" />
+        <!-- 倍速：单击打开倍速面板，长按在 1.0x 与默认倍速之间切换 -->
+        <com.fongmi.android.NewTV.ui.custom.CustomUpDownView
+            android:id="@+id/speed"
+            style="@style/ControlSlot"
+            android:contentDescription="@string/play_speed"
+            android:drawableStart="@drawable/ic_control_speed"
+            android:drawablePadding="0dp"
+            android:drawableTint="@color/selector_control_icon_tint"
+            android:fontFeatureSettings="tnum"
+            android:nextFocusLeft="@id/audio"
+            android:nextFocusRight="@id/panelBtn" />
 
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/danmaku"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:text="@string/danmaku"
-            android:visibility="gone"
-            tools:visibility="visible" />
+        <!-- 播放设置：点击在按钮正上方弹出浮层面板 -->
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/panelBtn"
+            style="@style/ControlIconSlot"
+            android:contentDescription="@string/setting_player"
+            android:nextFocusLeft="@id/speed"
+            android:nextFocusRight="@id/opening"
+            android:src="@drawable/ic_control_panel" />
 
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/edition"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:text="@string/play_edition"
-            android:visibility="gone"
-            tools:visibility="visible" />
+        <!-- 弹性留白：把「│ 片头 片尾」这一组整体推到最右侧；屏幕窄时先被压缩到 0 -->
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
 
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/chapter"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:text="@string/play_chapter"
-            android:visibility="gone"
-            tools:visibility="visible" />
+        <View style="@style/ControlDivider" />
 
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/disc_menu"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:text="@string/play_disc_menu"
-            android:visibility="gone"
-            tools:visibility="visible" />
-
+        <!-- 片头 / 片尾：固定最右端，顺序不可变；未设定显示「片头/片尾」，设定后显示时间 -->
         <com.fongmi.android.NewTV.ui.custom.CustomUpDownView
             android:id="@+id/opening"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
+            style="@style/ControlTextSlot"
+            android:contentDescription="@string/play_op"
+            android:nextFocusLeft="@id/panelBtn"
+            android:nextFocusRight="@id/ending"
             android:text="@string/play_op" />
 
         <com.fongmi.android.NewTV.ui.custom.CustomUpDownView
             android:id="@+id/ending"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:nextFocusRight="@id/next"
+            style="@style/ControlTextSlot"
+            android:contentDescription="@string/play_ed"
+            android:nextFocusLeft="@id/opening"
+            android:nextFocusRight="@id/ending"
             android:text="@string/play_ed" />
 
-        <com.fongmi.android.NewTV.ui.custom.PlaybackButtonsView
+        <!--
+          以下按钮不再直接显示，仅用于「播放设置」浮层的转发与状态读取；
+          VideoActivity 仍会对它们做点击绑定、可见性与文案同步。
+        -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/hidden"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:nextFocusLeft="@id/ending"
-            android:nextFocusRight="@id/next" />
+            android:orientation="horizontal"
+            android:visibility="gone"
+            tools:ignore="UnusedAttribute">
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/decoder"
+                style="@style/Control"
+                android:text="@string/decoder_action" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/scale"
+                style="@style/Control"
+                android:text="@string/play_scale" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/video"
+                style="@style/Control"
+                android:tag="2"
+                android:text="@string/play_track_video" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/edition"
+                style="@style/Control"
+                android:text="@string/play_edition"
+                android:visibility="gone"
+                tools:visibility="visible" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/chapter"
+                style="@style/Control"
+                android:text="@string/play_chapter"
+                android:visibility="gone"
+                tools:visibility="visible" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/disc_menu"
+                style="@style/Control"
+                android:text="@string/play_disc_menu"
+                android:visibility="gone"
+                tools:visibility="visible" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/parse"
+                style="@style/Control"
+                android:text="@string/parse"
+                android:visibility="gone"
+                tools:visibility="visible" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/player"
+                style="@style/Control"
+                android:text="@string/play_exo" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/reset"
+                style="@style/Control"
+                android:text="@string/play_reset" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/replay"
+                style="@style/Control"
+                android:text="@string/play_replay" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/repeat"
+                style="@style/Control"
+                android:text="@string/play_repeat" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
 
     </androidx.appcompat.widget.LinearLayoutCompat>
 </com.fongmi.android.NewTV.ui.custom.CustomHorizontalScrollView>

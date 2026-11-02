@@ -453,6 +453,10 @@ public class PlayerManager implements ParseCallback {
         callback.onDanmakuConfigChanged(config);
     }
 
+    public boolean isDanmakuEnabled() {
+        return danmakuEnabled;
+    }
+
     public void setDanmakuEnabled(boolean enabled) {
         if (danmakuEnabled == enabled) return;
         danmakuEnabled = enabled;

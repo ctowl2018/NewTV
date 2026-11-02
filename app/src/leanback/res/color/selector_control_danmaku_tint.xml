@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 弹幕按钮着色：与其它按钮一致，统一纯白；开关状态由图标本身（勾 / 斜线）表达。 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/white" />
+</selector>

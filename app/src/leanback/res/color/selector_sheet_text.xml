@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 浮层列表条目文字色：当前项纯白，其余 70% 白 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/white" android:state_activated="true" />
+    <item android:color="@color/white_70" />
+</selector>

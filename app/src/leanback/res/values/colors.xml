@@ -1,5 +1,8 @@
 <resources>
 
+    <!-- 进度条滑块（thumb）：沿用播放键的橙色，保持控制条内的强调色唯一 -->
+    <color name="control_scrubber">#E97022</color>
+
     <!-- 顶部工具栏图标焦点态：半透明白色圆块，常态完全透明（无背景色块） -->
     <color name="focus_block">#33FFFFFF</color>
 
