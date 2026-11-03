@@ -2,7 +2,7 @@
 <!--
   点播控制条按钮行。
 
-  直接展示（固定顺序）：播放/暂停、上集、下集 │ 弹幕、字幕、音轨、倍速、播放设置 …… 片头、片尾
+  直接展示（固定顺序）：播放/暂停、上集、下集、选集 │ 弹幕、字幕、音轨、倍速、调试、播放设置 …… 片头、片尾
     · 「下集」与「弹幕」之间用 1dp 竖线分组；
     · 「片头 / 片尾」永远贴最右侧，顺序不可变，用弹性留白把这一组推过去；
     · 图标按钮统一 50x40dp 槽位（左右各 3dp 外边距 → 相邻间距恒为 6dp），播放键 60x48dp 稍大一档。
@@ -55,8 +55,17 @@
             android:layout_marginEnd="1dp"
             android:contentDescription="@string/play_next"
             android:nextFocusLeft="@id/prev"
-            android:nextFocusRight="@id/danmaku"
+            android:nextFocusRight="@id/episodes"
             android:src="@drawable/ic_control_next" />
+
+        <!-- 选集：点击在按钮正上方弹出选集浮层（与倍速菜单同一容器与动效） -->
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/episodes"
+            style="@style/ControlIconSlot"
+            android:contentDescription="@string/play_episodes"
+            android:nextFocusLeft="@id/next"
+            android:nextFocusRight="@id/danmaku"
+            android:src="@drawable/ic_control_episode" />
 
         <!-- 播放组与后续操作的分隔线 -->
         <View style="@style/ControlDivider" />
@@ -66,7 +75,7 @@
             android:id="@+id/danmaku"
             style="@style/ControlIconSlot"
             android:contentDescription="@string/danmaku"
-            android:nextFocusLeft="@id/next"
+            android:nextFocusLeft="@id/episodes"
             android:nextFocusRight="@id/text"
             android:src="@drawable/selector_control_danmaku"
             android:visibility="gone"
@@ -105,14 +114,23 @@
             android:drawableTint="@color/selector_control_icon_tint"
             android:fontFeatureSettings="tnum"
             android:nextFocusLeft="@id/audio"
-            android:nextFocusRight="@id/panelBtn" />
+            android:nextFocusRight="@id/debug" />
+
+        <!-- 调试(bug)：点击切换播放调试信息浮层，与上游 PlayerEngineDialog 的 ic_action_debug 图标一致 -->
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/debug"
+            style="@style/ControlIconSlot"
+            android:contentDescription="@string/player_debug"
+            android:nextFocusLeft="@id/speed"
+            android:nextFocusRight="@id/panelBtn"
+            android:src="@drawable/ic_action_debug" />
 
         <!-- 播放设置：点击在按钮正上方弹出浮层面板 -->
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/panelBtn"
             style="@style/ControlIconSlot"
             android:contentDescription="@string/setting_player"
-            android:nextFocusLeft="@id/speed"
+            android:nextFocusLeft="@id/debug"
             android:nextFocusRight="@id/opening"
             android:src="@drawable/ic_control_panel" />
 

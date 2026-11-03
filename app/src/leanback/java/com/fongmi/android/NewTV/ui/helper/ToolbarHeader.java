@@ -11,7 +11,6 @@ import com.fongmi.android.NewTV.ui.activity.SearchActivity;
 import com.fongmi.android.NewTV.ui.activity.SettingActivity;
 import com.fongmi.android.NewTV.ui.dialog.LocalConnectDialog;
 import com.fongmi.android.NewTV.utils.Clock;
-import com.fongmi.android.NewTV.utils.ImgUtil;
 
 /**
  * 收藏 / 搜索 / 播放详情等页面的顶部品牌行绑定器。
@@ -39,8 +38,9 @@ public class ToolbarHeader {
     }
 
     private void init() {
-        ImgUtil.logo(binding.logoIcon);
-        // 非首页/分类页：logo 仅作静态品牌展示，不再触发站点选择菜单，也不做慢闪焦点特效。
+        // 品牌组件自带锁定：图标 / 字标固定为内置资源，不再由站点配置动态加载。
+        // 非首页/分类页：logo 仅作静态品牌展示，不触发站点选择菜单，也不做慢闪焦点特效。
+        binding.logo.refreshLocked();
         binding.funcSearch.setOnClickListener(v -> openSearch());
         binding.funcKeep.setOnClickListener(v -> openKeep());
         binding.funcConnect.setOnClickListener(v -> openConnect());
@@ -74,7 +74,24 @@ public class ToolbarHeader {
         clock.stop();
     }
 
+    /**
+     * 顶部渐变遮罩开关。
+     *
+     * <p>搜索页 / 搜索详情页保持默认关闭；播放详情页、收藏页打开。
+     * 遮罩用页头根布局的 background 承载，高度天然等于页头高度，
+     * 下边界始终与页头（导航栏）下边界精确齐平，且不会影响 wrap_content 页头的测量。
+     */
+    public void setScrimVisible(boolean visible) {
+        binding.getRoot().setBackgroundResource(visible ? R.drawable.shape_top_scrim : 0);
+    }
+
+    /**
+     * 站点切换 / 配置刷新后调用。
+     *
+     * <p>品牌组件已锁定：忽略站点数据里的 logo，只把内置图标与字标重新校正回固定外观，
+     * 保证运行时不会被数据源覆盖。
+     */
     public void onRefreshLogo() {
-        ImgUtil.logo(binding.logoIcon);
+        binding.logo.refreshLocked();
     }
 }

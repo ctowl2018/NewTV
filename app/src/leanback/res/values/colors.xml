@@ -3,6 +3,12 @@
     <!-- 进度条滑块（thumb）：沿用播放键的橙色，保持控制条内的强调色唯一 -->
     <color name="control_scrubber">#E97022</color>
 
+    <!-- 进度条（DefaultTimeBar）默认轨道色：已播 80% 白、未播 20% 白。滑块与之取同源，保证观感一致。 -->
+    <color name="control_track_played">#CCFFFFFF</color>
+    <color name="control_track_unplayed">#33FFFFFF</color>
+    <!-- 滑块聚焦/按下时的橙色光晕 -->
+    <color name="control_scrubber_halo">#4DE97022</color>
+
     <!-- 顶部工具栏图标焦点态：半透明白色圆块，常态完全透明（无背景色块） -->
     <color name="focus_block">#33FFFFFF</color>
 

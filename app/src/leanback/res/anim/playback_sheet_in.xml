@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 完整设置界面展开：与播放页浮层一致（180ms 淡入 + 自底部轻微放大） -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:interpolator="@android:interpolator/fast_out_slow_in">
+    <alpha
+        android:duration="180"
+        android:fromAlpha="0"
+        android:toAlpha="1" />
+    <scale
+        android:duration="180"
+        android:fromXScale="1"
+        android:fromYScale="0.94"
+        android:pivotX="50%"
+        android:pivotY="100%"
+        android:toXScale="1"
+        android:toYScale="1" />
+    <translate
+        android:duration="180"
+        android:fromYDelta="2%"
+        android:toYDelta="0" />
+</set>

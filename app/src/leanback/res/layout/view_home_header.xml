@@ -1,17 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  全局顶部品牌行 + 类型导航栏。
-  首页、搜索页、搜索结果页、播放详情页、收藏页、分类页共用本布局，
-  保证各页面顶部结构、样式与焦点交互完全一致。
+  全局顶部品牌行 + 类型导航栏。首页、分类页共用本布局。
 
-  品牌组合：[图标][字标]  右侧：搜索 / 收藏 / 连接 / 设置 四个无背景图标 + 时钟
+  品牌组合统一由 BrandLogoView 承载（站点 logo + 「影视 Videos」字标，锁定不可被站点数据改写），
+  与搜索页 / 搜索详情页 / 播放详情页 / 收藏页复用的 view_toolbar 是同一个组件。
+  右侧：搜索 / 收藏 / 连接 / 设置 四个无背景图标 + 时钟
   类型导航：首页与各分类同排，间距与胶囊样式由 TypeAdapter 决定
+
+  顶部渐变遮罩直接用根布局的 android:background 实现（不能用独立的 match_parent 子 View：
+  FrameLayout(wrap_content) 首轮测量会把普通 View 的 AT_MOST 解析成整屏高，页头被撑到全屏，
+  下方 weight=1 的内容区高度变 0，表现为海报/控件全部不显示）。
+  - 层级：根布局背景天然位于页面背景之上、品牌行 / 胶囊 / 所有交互控件之下；
+  - 顶部 #80000000（50% 黑），向下线性过渡到全透明；
+  - 高度 = 整个页头高度，下边界与导航栏下边界精确齐平。
 -->
 <androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@drawable/shape_top_scrim"
     android:orientation="vertical">
 
     <androidx.appcompat.widget.LinearLayoutCompat
@@ -25,40 +33,15 @@
         android:paddingEnd="24dp"
         android:paddingBottom="6dp">
 
-        <!-- 站点选择区域：logo 图标 + 「影视 Videos」字标整体作为一个可聚焦容器；
+        <!-- 站点选择区域：BrandLogoView 把 logo 图标 + 「影视 Videos」字标封装为一个整体；
              选中时不显示背景，改由 ToolbarHelper 慢闪动画提示 -->
-        <androidx.appcompat.widget.LinearLayoutCompat
+        <com.fongmi.android.NewTV.ui.custom.BrandLogoView
             android:id="@+id/logo"
             android:layout_width="wrap_content"
             android:layout_height="36dp"
-            android:gravity="center_vertical"
             android:focusable="true"
             android:focusableInTouchMode="true"
-            android:nextFocusRight="@id/funcSearch"
-            android:orientation="horizontal">
-
-            <androidx.appcompat.widget.AppCompatImageView
-                android:id="@+id/logoIcon"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:contentDescription="@string/app_name"
-                android:focusable="false"
-                android:focusableInTouchMode="false"
-                android:scaleType="fitCenter"
-                android:src="@drawable/ic_logo" />
-
-            <androidx.appcompat.widget.AppCompatImageView
-                android:id="@+id/logoWord"
-                android:layout_width="wrap_content"
-                android:layout_height="17dp"
-                android:layout_marginStart="8dp"
-                android:adjustViewBounds="true"
-                android:focusable="false"
-                android:focusableInTouchMode="false"
-                android:importantForAccessibility="no"
-                android:scaleType="fitCenter"
-                android:src="@drawable/logo_word" />
-        </androidx.appcompat.widget.LinearLayoutCompat>
+            android:nextFocusRight="@id/funcSearch" />
 
         <com.fongmi.android.NewTV.ui.custom.CustomTitleView
             android:id="@+id/title"

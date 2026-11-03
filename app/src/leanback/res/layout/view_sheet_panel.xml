@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  「播放设置」浮层的内容：控制条上不再直接展示的按钮。
+  「播放设置」浮层的内容：与倍速 / 选集菜单同一套单列列表样式（44dp 行、同一焦点框、15sp）。
 
   解码 / 画面比例 / 视轨 / 版本 / 章节 / 主菜单 / 解析 + 脚本命令按钮。
-  刷新、重播、循环、播放器引擎已按要求移除，不在此面板内。
+  画面比例条目只显示当前比例值，不再带「画面比例 ·」前缀。
 
   面板本身不实现播放逻辑：每个入口只转发到控制条 hidden 容器里同名按钮的 performClick()，
   因此对话框、状态同步、错误提示全部沿用原有实现。
@@ -12,99 +12,59 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
+    android:minWidth="220dp"
     android:orientation="vertical">
 
     <androidx.appcompat.widget.LinearLayoutCompat
-        android:id="@+id/sheetRow1"
-        android:layout_width="wrap_content"
+        android:id="@+id/sheetRows"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="vertical">
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/panelDecoder"
-            style="@style/ControlPanelChip"
-            android:nextFocusDown="@id/panelChapter"
-            android:nextFocusLeft="@id/panelDecoder"
-            android:nextFocusRight="@id/panelScale"
-            android:nextFocusUp="@id/panelDecoder"
+            style="@style/SheetPanelRow"
             android:text="@string/decoder_action" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/panelScale"
-            style="@style/ControlPanelChip"
-            android:minWidth="148dp"
-            android:nextFocusDown="@id/panelDiscMenu"
-            android:nextFocusLeft="@id/panelDecoder"
-            android:nextFocusRight="@id/panelVideo"
-            android:nextFocusUp="@id/panelScale"
+            style="@style/SheetPanelRow"
             android:text="@string/play_scale" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/panelVideo"
-            style="@style/ControlPanelChip"
-            android:nextFocusDown="@id/panelParse"
-            android:nextFocusLeft="@id/panelScale"
-            android:nextFocusRight="@id/panelEdition"
-            android:nextFocusUp="@id/panelVideo"
+            style="@style/SheetPanelRow"
             android:text="@string/play_track_video" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/panelEdition"
-            style="@style/ControlPanelChip"
-            android:layout_marginEnd="0dp"
-            android:nextFocusDown="@id/panelParse"
-            android:nextFocusLeft="@id/panelVideo"
-            android:nextFocusRight="@id/panelEdition"
-            android:nextFocusUp="@id/panelEdition"
+            style="@style/SheetPanelRow"
             android:text="@string/play_edition" />
-
-    </androidx.appcompat.widget.LinearLayoutCompat>
-
-    <androidx.appcompat.widget.LinearLayoutCompat
-        android:id="@+id/sheetRow2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:orientation="horizontal">
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/panelChapter"
-            style="@style/ControlPanelChip"
-            android:nextFocusDown="@id/panelChapter"
-            android:nextFocusLeft="@id/panelChapter"
-            android:nextFocusRight="@id/panelDiscMenu"
-            android:nextFocusUp="@id/panelDecoder"
+            style="@style/SheetPanelRow"
             android:text="@string/play_chapter" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/panelDiscMenu"
-            style="@style/ControlPanelChip"
-            android:nextFocusDown="@id/panelDiscMenu"
-            android:nextFocusLeft="@id/panelChapter"
-            android:nextFocusRight="@id/panelParse"
-            android:nextFocusUp="@id/panelScale"
+            style="@style/SheetPanelRow"
             android:text="@string/play_disc_menu" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/panelParse"
-            style="@style/ControlPanelChip"
-            android:layout_marginEnd="0dp"
-            android:nextFocusDown="@id/panelParse"
-            android:nextFocusLeft="@id/panelDiscMenu"
-            android:nextFocusRight="@id/panelParse"
-            android:nextFocusUp="@id/panelVideo"
+            style="@style/SheetPanelRow"
             android:text="@string/parse" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
 
-    <!-- 脚本 / 命令按钮（MPV 脚本、EXO 命令）：没有可用按钮时自身 GONE，不占位 -->
+    <!-- 脚本 / 命令按钮（MPV 脚本、EXO 命令）：没有可用按钮时自身 GONE，不占位。
+         左右键由 PanelSheet 串成排内闭环（不能指向控制条，否则焦点会逃出浮层）。 -->
     <com.fongmi.android.NewTV.ui.custom.PlaybackButtonsView
         android:id="@+id/panelScripts"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:nextFocusLeft="@id/panelParse"
-        android:nextFocusRight="@id/panelParse"
         tools:ignore="MissingClass" />
 
 </androidx.appcompat.widget.LinearLayoutCompat>

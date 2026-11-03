@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   顶部品牌行（与首页标题栏一致，但不含站点名称、不含导航栏胶囊）。
-  用于收藏 / 搜索 / 播放详情等页面：logo（站点选择）+ 搜索 / 收藏 / 连接 / 设置 + 时钟。
-  logo 区域为可聚焦容器，选中时由 ToolbarHelper 慢闪提示，无选中背景。
+  用于搜索页 / 搜索详情页 / 播放详情页 / 收藏页：BrandLogoView + 搜索 / 收藏 / 连接 / 设置 + 时钟。
+  品牌组合与 view_home_header 复用同一个 BrandLogoView（站点 logo + 「影视 Videos」字标，锁定不可被站点数据改写）；
+  本页头里品牌仅作静态展示，不触发站点菜单、不做慢闪焦点特效，故容器不可聚焦。
+
+  顶部渐变遮罩：默认不启用（搜索页 / 搜索详情页），播放详情页 / 收藏页由
+  ToolbarHeader.setScrimVisible(true) 把 shape_top_scrim 设为根布局背景来打开。
+  用根布局 background 而不是独立 match_parent 子 View，可避免 wrap_content 页头被撑到整屏，
+  同时保证遮罩高度 = 页头高度、下边界与导航栏下边界精确齐平；
+  层级上背景天然位于品牌行及所有交互控件之下。
 -->
 <androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -21,49 +28,22 @@
         android:paddingEnd="24dp"
         android:paddingBottom="6dp">
 
-        <!-- 站点选择区域：logo 图标 + 「影视 Videos」字标整体作为一个静态品牌展示；
-             非首页/分类页不触发站点菜单、不做慢闪焦点特效，故设为不可聚焦 -->
-        <androidx.appcompat.widget.LinearLayoutCompat
+        <com.fongmi.android.NewTV.ui.custom.BrandLogoView
             android:id="@+id/logo"
             android:layout_width="wrap_content"
             android:layout_height="36dp"
-            android:gravity="center_vertical"
             android:focusable="false"
-            android:focusableInTouchMode="false"
-            android:orientation="horizontal">
+            android:focusableInTouchMode="false" />
 
-            <androidx.appcompat.widget.AppCompatImageView
-                android:id="@+id/logoIcon"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:contentDescription="@string/app_name"
-                android:focusable="false"
-                android:focusableInTouchMode="false"
-                android:scaleType="fitCenter"
-                android:src="@drawable/ic_logo" />
-
-            <androidx.appcompat.widget.AppCompatImageView
-                android:id="@+id/logoWord"
-                android:layout_width="wrap_content"
-                android:layout_height="17dp"
-                android:layout_marginStart="8dp"
-                android:adjustViewBounds="true"
-                android:focusable="false"
-                android:focusableInTouchMode="false"
-                android:importantForAccessibility="no"
-                android:scaleType="fitCenter"
-                android:src="@drawable/logo_word" />
-        </androidx.appcompat.widget.LinearLayoutCompat>
-
-        <!-- 站点名称：与首页标题栏一致（位置/间距/字体/颜色）。默认无文本（仅作弹性间隔），
-             搜索结果页会在此承载「搜索 xxx 的结果」标题 -->
+        <!-- 站点名称 / 搜索结果标题：与首页标题栏一致（位置/间距/字体/颜色）。
+             默认无文本（仅作弹性间隔），搜索结果页会在此承载「搜索 xxx 的结果」标题 -->
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/title"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:layout_marginStart="14dp"
             android:layout_marginEnd="16dp"
+            android:layout_weight="1"
             android:ellipsize="marquee"
             android:focusable="false"
             android:focusableInTouchMode="false"
@@ -115,4 +95,5 @@
             android:textSize="20sp" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
+
 </androidx.appcompat.widget.LinearLayoutCompat>

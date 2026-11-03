@@ -36,7 +36,7 @@
             android:layout_width="40dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
-            android:background="@drawable/selector_chip_round"
+            android:background="@drawable/selector_sheet_chip_round"
             android:focusable="true"
             android:nextFocusLeft="@id/keyword"
             android:padding="8dp"

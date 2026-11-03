@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.view.View;
 import android.view.ViewGroup;
 
-import com.fongmi.android.NewTV.R;
 import com.fongmi.android.NewTV.databinding.ViewControlVodActionBinding;
 import com.fongmi.android.NewTV.databinding.ViewSheetPanelBinding;
 
@@ -79,7 +78,8 @@ public final class PanelSheet {
 
     private void syncLabels() {
         if (action.scale == null) return;
-        binding.panelScale.setText(activity.getString(R.string.play_scale_label) + " · " + action.scale.getText());
+        // 只显示画面比例的状态值，不再带「画面比例 ·」前缀
+        binding.panelScale.setText(action.scale.getText());
     }
 
     private void syncVisible(View panelView, View source) {
@@ -87,49 +87,45 @@ public final class PanelSheet {
     }
 
     private void relink() {
-        List<View> top = visibleChildren(binding.sheetRow1);
-        List<View> bottom = visibleChildren(binding.sheetRow2);
-        chain(top);
-        chain(bottom);
-        for (int i = 0; i < top.size(); i++) {
-            View view = top.get(i);
-            view.setNextFocusUpId(view.getId());
-            view.setNextFocusDownId(bottom.isEmpty() ? view.getId() : bottom.get(Math.min(i, bottom.size() - 1)).getId());
+        List<View> rows = visibleChildren(binding.sheetRows);
+        for (int i = 0; i < rows.size(); i++) {
+            View view = rows.get(i);
+            view.setNextFocusLeftId(view.getId());
+            view.setNextFocusRightId(view.getId());
+            view.setNextFocusUpId(i == 0 ? view.getId() : rows.get(i - 1).getId());
+            view.setNextFocusDownId(i == rows.size() - 1 ? view.getId() : rows.get(i + 1).getId());
         }
-        for (int i = 0; i < bottom.size(); i++) {
-            View view = bottom.get(i);
-            view.setNextFocusUpId(top.isEmpty() ? view.getId() : top.get(Math.min(i, top.size() - 1)).getId());
-            view.setNextFocusDownId(view.getId());
-        }
-        wireScripts();
+        wireScripts(rows);
     }
 
     /**
      * 脚本按钮行（panelScripts）仅在 MPV / EXO 引擎下出现，且内容在挂载后才填充。
-     * 把它按从左到右并入焦点链：在「紧邻其上的那一行末尾入口」与「脚本首/末按钮」之间补上
-     * 上/下方向，保证整块浮层都能 Tab 到，不会在某个入口断掉。
+     * 把它接在单列列表最后一项之下：末行 ↓ → 脚本首按钮，脚本末按钮 ↓ 封口，
+     * 保证整块浮层都能走位到，不会在某个入口断掉。
      * 脚本按钮自身的左/右边界由 {@link PlaybackButtonsView#updateFocusNeighbors()} 负责。
      */
-    private void wireScripts() {
+    private void wireScripts(List<View> rows) {
         if (binding.panelScripts.getVisibility() != View.VISIBLE || binding.panelScripts.getChildCount() == 0) return;
+        // 排内左右闭环：脚本按钮之间左右可切换，首尾封口，不会把焦点带回控制条
+        binding.panelScripts.trapHorizontalFocus();
         View first = binding.panelScripts.getChildAt(0);
         View last = binding.panelScripts.getChildAt(binding.panelScripts.getChildCount() - 1);
-        List<View> above = binding.sheetRow2.getVisibility() == View.VISIBLE && !visibleChildren(binding.sheetRow2).isEmpty()
-                ? visibleChildren(binding.sheetRow2)
-                : visibleChildren(binding.sheetRow1);
-        if (above.isEmpty()) return;
-        View aboveLast = above.get(above.size() - 1);
-        aboveLast.setNextFocusDownId(first.getId());
-        first.setNextFocusUpId(aboveLast.getId());
+        View lastRow = rows.isEmpty() ? null : rows.get(rows.size() - 1);
+        if (lastRow == null) {
+            first.setNextFocusUpId(first.getId());
+            last.setNextFocusUpId(last.getId());
+        } else {
+            lastRow.setNextFocusDownId(first.getId());
+            first.setNextFocusUpId(lastRow.getId());
+            last.setNextFocusUpId(lastRow.getId());
+        }
         last.setNextFocusDownId(last.getId());
-        last.setNextFocusUpId(aboveLast.getId());
     }
 
     /** 浮层打开后把焦点交给第一个可见入口（左上角），避免焦点留在被锁定的控制条上、导致控件拿不到焦点。 */
     public void focus() {
         relink();
-        View first = firstVisible(binding.sheetRow1);
-        if (first == null) first = firstVisible(binding.sheetRow2);
+        View first = firstVisible(binding.sheetRows);
         if (first == null && binding.panelScripts.getVisibility() == View.VISIBLE && binding.panelScripts.getChildCount() > 0) {
             first = binding.panelScripts.getChildAt(0);
         }
@@ -142,14 +138,6 @@ public final class PanelSheet {
             if (child.getVisibility() == View.VISIBLE) return child;
         }
         return null;
-    }
-
-    private void chain(List<View> views) {
-        for (int i = 0; i < views.size(); i++) {
-            View view = views.get(i);
-            view.setNextFocusLeftId(i == 0 ? view.getId() : views.get(i - 1).getId());
-            view.setNextFocusRightId(i == views.size() - 1 ? view.getId() : views.get(i + 1).getId());
-        }
     }
 
     private List<View> visibleChildren(ViewGroup group) {

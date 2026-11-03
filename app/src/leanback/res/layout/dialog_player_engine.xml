@@ -19,14 +19,13 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="@string/player_engine"
-            android:textColor="@color/white"
-            android:textSize="16sp" />
+            style="@style/PlaybackSheetTitle" />
 
         <com.fongmi.android.NewTV.ui.custom.DialogActionView
             android:id="@+id/debug"
             android:layout_width="40dp"
             android:layout_height="wrap_content"
-            android:background="@drawable/selector_chip_round"
+            android:background="@drawable/selector_sheet_chip_round"
             android:contentDescription="@string/player_debug"
             android:focusable="true"
             android:focusableInTouchMode="true"
@@ -48,7 +47,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
-            android:background="@drawable/selector_chip_round"
+            android:background="@drawable/selector_sheet_chip_round"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:text="@string/play_exo"
@@ -60,7 +59,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
-            android:background="@drawable/selector_chip_round"
+            android:background="@drawable/selector_sheet_chip_round"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:text="@string/play_mpv"
@@ -71,7 +70,7 @@
             android:id="@+id/other"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="@drawable/selector_chip_round"
+            android:background="@drawable/selector_sheet_chip_round"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:text="@string/play_other"

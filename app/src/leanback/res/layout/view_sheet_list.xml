@@ -5,13 +5,38 @@
   与「弹幕搜索列表」同一套实现：普通 RecyclerView + LinearLayoutManager，
   用 maxHeight 限制可视高度（由 SheetList.setRows 回写），超出一屏时按框架默认行为滚动
   —— 焦点走到边缘后列表继续滚，到头即停、无回弹。不再使用 leanback 的窗口对齐。
+
+  「选中框」不再画在每一行上（行会被 RecyclerView 回收，addStatesFromChildren 在滚动/复用后
+  容易留下过期的焦点态，表现为框停在初始位置不动）。改为在容器上放唯一一个 overlay：
+  SheetList 在焦点变化与滚动时把它移动到当前聚焦行的位置，并钳制在容器边界内，
+  因此框始终跟随滚动、不会溢出列表容器。
 -->
-<com.fongmi.android.NewTV.ui.custom.CustomRecyclerView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/sheetList"
+    android:id="@+id/sheetListRoot"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:clipChildren="false"
-    android:clipToPadding="false"
-    android:overScrollMode="never"
-    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+    android:clipChildren="true"
+    android:clipToPadding="true">
+
+    <com.fongmi.android.NewTV.ui.custom.CustomRecyclerView
+        android:id="@+id/sheetList"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:overScrollMode="never"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+    <!-- 唯一的选中框：位置由 SheetList.syncSelectionFrame() 计算，始终钳制在容器内 -->
+    <View
+        android:id="@+id/sheetSelection"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/shape_sheet_focus"
+        android:clickable="false"
+        android:focusable="false"
+        android:importantForAccessibility="no"
+        android:visibility="gone" />
+
+</FrameLayout>

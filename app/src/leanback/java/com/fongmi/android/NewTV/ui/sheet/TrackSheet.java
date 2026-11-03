@@ -19,6 +19,7 @@ import com.fongmi.android.NewTV.databinding.ViewSheetTrackBinding;
 import com.fongmi.android.NewTV.player.PlayerManager;
 import com.fongmi.android.NewTV.player.compat.SubtitleSelectionState;
 import com.fongmi.android.NewTV.player.track.TrackUtil;
+import com.fongmi.android.NewTV.setting.DanmakuSetting;
 import com.fongmi.android.NewTV.ui.activity.PlaybackActivity;
 import com.fongmi.android.NewTV.ui.adapter.DanmakuAdapter;
 import com.fongmi.android.NewTV.ui.adapter.TrackAdapter;
@@ -30,9 +31,12 @@ import com.fongmi.android.NewTV.ui.dialog.SubtitleSearchDialog;
 import com.fongmi.android.NewTV.ui.dialog.SubtitleSettingDialog;
 import com.fongmi.android.NewTV.ui.dialog.VideoSettingDialog;
 import com.fongmi.android.NewTV.utils.ResUtil;
+import com.fongmi.android.NewTV.utils.SliderUtil;
+import com.google.android.material.slider.Slider;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.IntConsumer;
 
 /**
@@ -87,6 +91,7 @@ public final class TrackSheet {
         binding.sheetTrackContent.setVisibility(subtitle ? View.VISIBLE : View.GONE);
         binding.sheetTrackSetting.setVisibility(View.VISIBLE);
         binding.sheetTrackSetting.setContentDescription(activity.getString(getSettingText()));
+        binding.sheetTrackDanmakuQuick.setVisibility(View.GONE);
         bindActions(false);
         TrackAdapter adapter = new TrackAdapter(item -> onTrackClick(item));
         binding.sheetTrackRecycler.setAdapter(adapter.addAll(getTrack()));
@@ -103,6 +108,8 @@ public final class TrackSheet {
         binding.sheetTrackContent.setVisibility(View.GONE);
         binding.sheetTrackSetting.setVisibility(View.VISIBLE);
         binding.sheetTrackSetting.setContentDescription(activity.getString(R.string.danmaku_setting));
+        binding.sheetTrackDanmakuQuick.setVisibility(View.VISIBLE);
+        bindDanmakuQuick();
         bindActions(true);
         DanmakuAdapter adapter = new DanmakuAdapter(this::onDanmakuClick);
         binding.sheetTrackRecycler.setAdapter(adapter.addAll(player == null ? new ArrayList<>() : player.getDanmakus()));
@@ -110,10 +117,59 @@ public final class TrackSheet {
         binding.sheetTrackRecycler.scrollToPosition(adapter.getSelected());
     }
 
+    /**
+     * 弹幕浮层内的两项常用设置。与弹幕设置页共用 {@link DanmakuSetting} 的同一份持久化配置，
+     * 范围 / 步长 / 默认值 / 文案完全一致；调整后立刻把新配置推给播放器，画面中的弹幕实时重排。
+     */
+    private void bindDanmakuQuick() {
+        Slider textScale = binding.textScaleSlider;
+        textScale.clearOnChangeListeners();
+        SliderUtil.setValue(textScale, DanmakuSetting.getTextScale());
+        binding.textScaleValue.setText(formatTextScale(textScale.getValue()));
+        textScale.addOnChangeListener((source, value, fromUser) -> {
+            if (!fromUser) return;
+            float snapped = SliderUtil.snap(source, value);
+            DanmakuSetting.putTextScale(snapped);
+            binding.textScaleValue.setText(formatTextScale(snapped));
+            applyDanmakuConfig();
+        });
+
+        Slider maxScrollLines = binding.maxScrollLinesSlider;
+        maxScrollLines.clearOnChangeListeners();
+        SliderUtil.setValue(maxScrollLines, DanmakuSetting.getMaxScrollLines());
+        binding.maxScrollLinesValue.setText(formatLines(Math.round(maxScrollLines.getValue())));
+        maxScrollLines.addOnChangeListener((source, value, fromUser) -> {
+            if (!fromUser) return;
+            int snapped = Math.round(SliderUtil.snap(source, value));
+            DanmakuSetting.putMaxScrollLines(snapped);
+            binding.maxScrollLinesValue.setText(formatLines(snapped));
+            applyDanmakuConfig();
+        });
+    }
+
+    /** 与弹幕设置页同一格式：保留 1 位小数。 */
+    private String formatTextScale(float value) {
+        return String.format(Locale.getDefault(), "%.1f", value);
+    }
+
+    /** 与弹幕设置页同一规则：0 显示「自动」，其余显示行数。 */
+    private String formatLines(int value) {
+        return value == 0 ? activity.getString(R.string.danmaku_auto) : String.valueOf(value);
+    }
+
+    /** 复用 PlayerManager#getDanmakuConfig()：它从 DanmakuSetting 重建并带上持久化的时间偏移。 */
+    private void applyDanmakuConfig() {
+        if (player != null && !player.isReleased()) player.setDanmakuConfig(player.getDanmakuConfig());
+    }
+
     /** 浮层打开后把焦点交给列表首行（列表为空时给动作图标），避免焦点留在控制条上。 */
     public void focus() {
         if (binding.sheetTrackRecycler.getVisibility() == View.VISIBLE && binding.sheetTrackRecycler.getAdapter() != null && binding.sheetTrackRecycler.getAdapter().getItemCount() > 0) {
             binding.sheetTrackRecycler.requestFocus();
+            return;
+        }
+        if (binding.sheetTrackDanmakuQuick.getVisibility() == View.VISIBLE) {
+            binding.textScaleSlider.requestFocus();
             return;
         }
         if (binding.sheetTrackSetting.getVisibility() == View.VISIBLE) binding.sheetTrackSetting.requestFocus();

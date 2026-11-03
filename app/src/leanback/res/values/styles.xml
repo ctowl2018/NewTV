@@ -169,6 +169,37 @@
         <item name="android:textSize">14sp</item>
     </style>
 
+    <!-- 「播放设置」浮层的单列条目：与倍速 / 选集菜单同规格（44dp 行、同一焦点框、15sp 文字） -->
+    <style name="SheetPanelRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">44dp</item>
+        <item name="android:background">@drawable/selector_sheet_chip</item>
+        <item name="android:clickable">true</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:focusable">true</item>
+        <item name="android:focusableInTouchMode">true</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:minWidth">220dp</item>
+        <item name="android:paddingStart">24dp</item>
+        <item name="android:paddingEnd">24dp</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:textColor">@color/selector_sheet_text</item>
+        <item name="android:textSize">15sp</item>
+    </style>
+
+    <!-- 播放页浮层体系：父级浮层（VideoSheet）与它下面打开的子级弹窗共用同一套标题规格 -->
+    <style name="PlaybackSheetTitle">
+        <item name="android:textColor">@color/white</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <!-- 完整设置界面（侧边弹窗）与播放页浮层统一的展开/收起动效 -->
+    <style name="Animation.PlaybackSideSheet" parent="@android:style/Animation.Dialog">
+        <item name="android:windowEnterAnimation">@anim/playback_sheet_in</item>
+        <item name="android:windowExitAnimation">@anim/playback_sheet_out</item>
+    </style>
+
     <style name="ControlPanelTitle">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>

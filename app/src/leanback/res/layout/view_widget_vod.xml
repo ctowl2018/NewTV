@@ -16,39 +16,48 @@
         android:visibility="gone"
         tools:visibility="visible">
 
-        <!-- 片名：字号为上一代 30sp 的 90%（27sp），字重与「片头」按钮一致（bold + 去内边距 + 等宽数字） -->
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/title"
-            style="@style/Shadow"
+        <!-- 片名与当前集数同一行，中间用「：」分隔（集数由代码拼到 subtitle 文本前） -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/titleRow"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginEnd="16dp"
             android:layout_toStartOf="@+id/clock"
-            android:ellipsize="marquee"
-            android:fontFeatureSettings="tnum"
-            android:includeFontPadding="false"
-            android:singleLine="true"
-            android:textColor="@color/white"
-            android:textSize="27sp"
-            android:textStyle="bold"
-            tools:text="慶餘年第一季" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/subtitle"
-            style="@style/Shadow"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_below="@+id/title"
-            android:layout_alignStart="@+id/title"
-            android:layout_marginEnd="16dp"
-            android:layout_toStartOf="@+id/clock"
-            android:ellipsize="end"
-            android:singleLine="true"
-            android:textColor="@color/white_80"
-            android:textSize="16sp"
-            android:visibility="gone"
-            tools:text="第1集"
-            tools:visibility="visible" />
+            <!-- 宽度由代码按「整行 − 集数」分配：短片名不会把集数顶到右侧时钟旁 -->
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/title"
+                style="@style/Shadow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFeatureSettings="tnum"
+                android:includeFontPadding="false"
+                android:singleLine="true"
+                android:textColor="@color/white"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                tools:text="慶餘年第一季" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/subtitle"
+                style="@style/Shadow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFeatureSettings="tnum"
+                android:includeFontPadding="false"
+                android:singleLine="true"
+                android:textColor="@color/white"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                tools:text="：第1集"
+                tools:visibility="visible" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/clock"

@@ -192,4 +192,15 @@ public final class VideoSheet {
         }
         return false;
     }
+
+    /**
+     * 把焦点拉回浮层内部。
+     *
+     * <p>方向键在浮层边缘按到「没有浮层内邻居」时，系统焦点搜索可能把焦点带出去；
+     * 调用方吃到这种按键后用它把焦点重新落到浮层第一个可聚焦后代上，保证焦点不丢。
+     */
+    public boolean requestFocusInside() {
+        if (!showing) return false;
+        return binding.sheetContent.requestFocus();
+    }
 }

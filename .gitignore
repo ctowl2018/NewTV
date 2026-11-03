@@ -67,3 +67,6 @@ Desktop.ini
 
 # 构建产物（已另存于 app/build/outputs）
 dist/
+
+# 临时构建目录（标准输出目录被外部进程占用时，用 -I .tmp/relocate-build.gradle 临时重定向）
+.build-alt/

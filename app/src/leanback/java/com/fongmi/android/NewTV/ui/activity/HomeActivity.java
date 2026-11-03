@@ -86,6 +86,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     /** 组合标宽度占屏宽的比例（设计稿 1920x1080 中 920x75 的裁切图）。 */
     private static final float SPLASH_LOGO_WIDTH_RATIO = 0.479f;
     private static final float SPLASH_LOGO_ASPECT = 920f / 75f;
+    /** 首页右上角背景图宽度占屏宽的比例；高度按原图比例自动换算，各尺寸屏幕视觉比例一致。 */
+    private static final float HERO_WIDTH_RATIO = 0.744f;
     /** 欢迎页最短展示时长：logo 出现到开始淡出至少 1 秒，避免一闪而过。 */
     private static final long SPLASH_MIN_DISPLAY = 1000L;
     /** 首页迟迟不就绪（站点异常）时的兜底时长，保证不会卡在欢迎页。 */
@@ -164,6 +166,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         if (savedInstanceState == null || !savedInstanceState.getBoolean(STATE_ACTION_HANDLED)) pendingAction = getIntent();
         mResult = Result.empty();
         mBinding.progressLayout.showProgress();
+        setupHomeHero();
         initSplash(savedInstanceState);
         setHeader();
         setRecyclerView();
@@ -325,6 +328,11 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     }
 
     // ------------------------------------------------------------ 启动欢迎页
+
+    /** 首页右上角背景图：按屏宽比例定尺寸，右上角贴边；左侧/底部羽化由控件自身完成。 */
+    private void setupHomeHero() {
+        mBinding.homeHero.load(R.drawable.home_hero, HERO_WIDTH_RATIO);
+    }
 
     /** 首帧前准备欢迎页：按屏宽等比定尺寸，logo 直接以全透明度呈现（无淡入动画）。 */
     private void initSplash(Bundle savedInstanceState) {

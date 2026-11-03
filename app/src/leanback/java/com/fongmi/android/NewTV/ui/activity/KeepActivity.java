@@ -17,6 +17,7 @@ import com.fongmi.android.NewTV.impl.Callback;
 import com.fongmi.android.NewTV.ui.adapter.KeepAdapter;
 import com.fongmi.android.NewTV.ui.base.BaseActivity;
 import com.fongmi.android.NewTV.ui.custom.SpaceItemDecoration;
+import com.fongmi.android.NewTV.ui.helper.ToolbarHeader;
 import com.fongmi.android.NewTV.utils.Notify;
 
 import org.greenrobot.eventbus.Subscribe;
@@ -26,6 +27,7 @@ public class KeepActivity extends BaseActivity implements KeepAdapter.OnClickLis
 
     private ActivityKeepBinding mBinding;
     private KeepAdapter mAdapter;
+    private ToolbarHeader mHeader;
 
     public static void start(Activity activity) {
         activity.startActivity(new Intent(activity, KeepActivity.class));
@@ -38,6 +40,9 @@ public class KeepActivity extends BaseActivity implements KeepAdapter.OnClickLis
 
     @Override
     protected void initView(Bundle savedInstanceState) {
+        mHeader = ToolbarHeader.bind(this, mBinding.toolbar);
+        // 收藏页属于需要顶部渐变遮罩的四个页面之一
+        mHeader.setScrimVisible(true);
         setRecyclerView();
         getKeep();
     }
@@ -45,12 +50,14 @@ public class KeepActivity extends BaseActivity implements KeepAdapter.OnClickLis
     @Override
     protected void onResume() {
         super.onResume();
+        mHeader.onResume();
         mBinding.recycler.requestFocus();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        mHeader.onPause();
     }
 
     private void setRecyclerView() {

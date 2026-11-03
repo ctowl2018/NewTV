@@ -5,6 +5,11 @@
     android:background="@color/background"
     android:orientation="vertical">
 
+    <!-- 收藏页顶部品牌行：与搜索 / 搜索详情 / 播放详情页复用同一个 view_toolbar（内含 BrandLogoView） -->
+    <include
+        android:id="@+id/toolbar"
+        layout="@layout/view_toolbar" />
+
     <com.fongmi.android.NewTV.ui.custom.ProgressLayout
         android:id="@+id/progressLayout"
         android:layout_width="match_parent"

@@ -5,6 +5,8 @@ import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
+import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -32,6 +34,13 @@ import java.util.List;
  *
  * <p><b>初始定位</b>：菜单自下往上弹出，最底下一行离按钮最近，所以打开时把当前选中项
  * （倍速是 1.0x、选集是正在播的那一集）停靠在可视区最底部；内容一屏放得下时不做滚动。
+ * 选集列表另有 {@link #setAvoidEmptyRows(boolean)}：选中行上方不足一屏时改为顶部对齐，
+ * 让选中行上移并避免容器顶部出现空行。
+ *
+ * <p><b>选中框</b>：不由行自身绘制（行会被回收，焦点态容易过期而停在初始位置），
+ * 而是在列表容器上放唯一 overlay（{@code sheetSelection}）。焦点变化与每次滚动都会重算
+ * 它的位置（{@link #syncSelectionFrame()}），并钳制在容器边界内，因此框始终跟随聚焦行、
+ * 不会溢出列表容器。
  */
 public final class SheetList {
 
@@ -46,12 +55,35 @@ public final class SheetList {
     private final ViewSheetListBinding binding;
     private final Adapter adapter;
     private int selected;
+    /** 选集列表专用：选中行上方不足一屏时改为顶部对齐，避免列表容器顶部出现空行。 */
+    private boolean avoidEmptyRows;
+    private final ViewTreeObserver.OnGlobalFocusChangeListener focusListener = (oldFocus, newFocus) -> syncSelectionFrame();
+    private ViewTreeObserver observer;
 
     public SheetList(Context context) {
         binding = ViewSheetListBinding.inflate(LayoutInflater.from(context));
         binding.sheetList.setItemAnimator(null);
         binding.sheetList.addItemDecoration(new SpaceItemDecoration(1, ITEM_SPACING_DP));
         binding.sheetList.setAdapter(adapter = new Adapter());
+        // 滚动时选中框必须跟着行的位置走；否则它只会停在打开时算出的初始位置
+        binding.sheetList.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                syncSelectionFrame();
+            }
+        });
+        binding.getRoot().addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(@NonNull View view) {
+                registerFocusObserver();
+            }
+
+            @Override
+            public void onViewDetachedFromWindow(@NonNull View view) {
+                unregisterFocusObserver();
+                binding.sheetSelection.setVisibility(View.GONE);
+            }
+        });
     }
 
     public View getView() {
@@ -59,8 +91,26 @@ public final class SheetList {
     }
 
     public void submit(List<String> texts, int selected, int activated, OnClickListener listener) {
-        adapter.submit(texts, activated, listener);
+        submit(texts, selected, activated, -1, listener);
+    }
+
+    /**
+     * @param playing 正在播放的行下标（会在该行前面显示均衡器小图标）；-1 表示这是个没有「播放中」概念的列表（倍速）。
+     *                取值 &gt;= 0 时所有行都会预留图标槽位，保证各行文字左边缘对齐。
+     */
+    public void submit(List<String> texts, int selected, int activated, int playing, OnClickListener listener) {
+        adapter.submit(texts, activated, playing, listener);
         this.selected = Math.max(0, Math.min(selected, Math.max(0, texts.size() - 1)));
+        // 数据集变了：旧的聚焦行可能已被回收，先让框在下一帧重新定位（或隐藏）
+        binding.getRoot().post(this::syncSelectionFrame);
+    }
+
+    /**
+     * 选集列表专用：选中行上方不足一屏时，不再把选中行钉在底部（那会在顶部留下空行），
+     * 改为顶部对齐，让选中行上移、下方行填满容器。倍速列表保持原有的「选中项贴底」。
+     */
+    public void setAvoidEmptyRows(boolean avoidEmptyRows) {
+        this.avoidEmptyRows = avoidEmptyRows;
     }
 
     /**
@@ -72,6 +122,55 @@ public final class SheetList {
     public void focus() {
         dockToBottom();
         binding.sheetList.post(this::focusSelected);
+        binding.getRoot().post(this::syncSelectionFrame);
+    }
+
+    private void registerFocusObserver() {
+        ViewTreeObserver current = binding.getRoot().getViewTreeObserver();
+        if (observer == current && current.isAlive()) return;
+        unregisterFocusObserver();
+        observer = current;
+        if (observer.isAlive()) observer.addOnGlobalFocusChangeListener(focusListener);
+        binding.getRoot().post(this::syncSelectionFrame);
+    }
+
+    private void unregisterFocusObserver() {
+        if (observer == null) return;
+        if (observer.isAlive()) observer.removeOnGlobalFocusChangeListener(focusListener);
+        observer = null;
+    }
+
+    /**
+     * 把唯一的选中框移动到「当前聚焦行」的位置。
+     *
+     * <p>行可能是部分滚出可视区的：直接把框放到行的位置会溢出列表容器，所以 left/top 都要
+     * 钳制在 {@code [0, 容器尺寸 - 框尺寸]} 内。焦点不在列表里、或列表还没布局时隐藏框。
+     */
+    private void syncSelectionFrame() {
+        View row = binding.sheetList.getFocusedChild();
+        int width = binding.getRoot().getWidth();
+        int height = binding.getRoot().getHeight();
+        int rowWidth = row == null ? 0 : row.getWidth();
+        int rowHeight = row == null ? 0 : row.getHeight();
+        if (rowWidth <= 0 || rowHeight <= 0 || width <= 0 || height <= 0) {
+            binding.sheetSelection.setVisibility(View.GONE);
+            return;
+        }
+        // 跟随聚焦行，并限制在容器边界内（行滚动到一半时也不会伸出容器）
+        int left = Math.max(0, Math.min(row.getLeft(), width - rowWidth));
+        int top = Math.max(0, Math.min(row.getTop(), height - rowHeight));
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) binding.sheetSelection.getLayoutParams();
+        if (params.width != rowWidth || params.height != rowHeight) {
+            params.width = rowWidth;
+            params.height = rowHeight;
+            params.leftMargin = 0;
+            params.topMargin = 0;
+            binding.sheetSelection.setLayoutParams(params);
+        }
+        // 用 setX/setY 移动而不是改 margin：滚动时不会触发列表重新布局
+        binding.sheetSelection.setX(left);
+        binding.sheetSelection.setY(top);
+        binding.sheetSelection.setVisibility(View.VISIBLE);
     }
 
     private void focusSelected() {
@@ -87,13 +186,21 @@ public final class SheetList {
         int height = rows <= 0 ? 0 : rows * ResUtil.dp2px(ITEM_HEIGHT_DP) + Math.max(0, rows - 1) * ResUtil.dp2px(ITEM_SPACING_DP);
         binding.sheetList.setMaxHeight(height);
         binding.sheetList.requestLayout();
+        // 高度变化后聚焦行的位置会变，下一帧重新贴合选中框
+        binding.getRoot().post(this::syncSelectionFrame);
     }
 
     public int getItemCount() {
         return adapter.getItemCount();
     }
 
-    /** 把选中项停靠到可视区最底部；一屏放得下就保持原样。 */
+    /**
+     * 把选中项停靠到可视区最底部；一屏放得下就保持原样。
+     *
+     * <p>{@link #avoidEmptyRows} 为 true（选集列表）时：若选中行上方不足一屏
+     * （少于 {@code 可视行数 - 1} 行），底部停靠会在容器顶部留下空行，改为顶部对齐，
+     * 让选中行上移、下方已看过的集数把容器填满。
+     */
     private void dockToBottom() {
         LinearLayoutManager layoutManager = layoutManager();
         if (layoutManager == null) return;
@@ -103,6 +210,11 @@ public final class SheetList {
         int content = count * row + Math.max(0, count - 1) * ResUtil.dp2px(ITEM_SPACING_DP);
         int height = binding.sheetList.getHeight();
         if (height <= 0 || content <= height) return;
+        // 上方行数不足一屏：改为顶部对齐，避免容器内出现空行（选集播放最新一集时 selected=0）
+        if (avoidEmptyRows && selected < visibleRows() - 1) {
+            layoutManager.scrollToPositionWithOffset(0, 0);
+            return;
+        }
         layoutManager.scrollToPositionWithOffset(selected, Math.max(0, height - row));
     }
 
@@ -167,12 +279,14 @@ public final class SheetList {
 
         private final List<String> items = new ArrayList<>();
         private int activated = -1;
+        private int playing = -1;
         private OnClickListener listener;
 
-        void submit(List<String> texts, int activated, OnClickListener listener) {
+        void submit(List<String> texts, int activated, int playing, OnClickListener listener) {
             items.clear();
             items.addAll(texts);
             this.activated = activated;
+            this.playing = playing;
             this.listener = listener;
             notifyDataSetChanged();
         }
@@ -195,9 +309,25 @@ public final class SheetList {
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             holder.binding.sheetItemText.setActivated(position == activated);
             holder.binding.sheetItemText.setText(items.get(position));
+            bindPlaying(holder, position);
             holder.binding.sheetItemText.setOnClickListener(view -> {
                 if (listener != null) listener.onItemClick(holder.getBindingAdapterPosition());
             });
+        }
+
+        /**
+         * 正在播放的指示器：整列预留槽位（未播放行 INVISIBLE 占位，保证文字左边缘对齐），
+         * 只有播放中的那一行跑均衡器动画；没有「播放中」概念的列表整块 GONE，不占宽度。
+         */
+        private void bindPlaying(ViewHolder holder, int position) {
+            if (playing < 0) {
+                holder.binding.sheetItemPlaying.setVisibility(View.GONE);
+                holder.binding.sheetItemPlaying.setPlaying(false);
+                return;
+            }
+            boolean current = position == playing;
+            holder.binding.sheetItemPlaying.setVisibility(current ? View.VISIBLE : View.INVISIBLE);
+            holder.binding.sheetItemPlaying.setPlaying(current);
         }
 
         static final class ViewHolder extends RecyclerView.ViewHolder {

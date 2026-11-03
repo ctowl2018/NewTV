@@ -23,6 +23,16 @@ public class Danmaku {
     private String url;
 
     private transient boolean selected;
+    private transient DanmakuTitle meta;
+
+    /**
+     * 结构化标题（懒解析并缓存）：搜索列表要按分类 / 平台筛选并分行展示，
+     * 一次搜索可能上千条，逐次正则代价不小，这里只在首次访问时解析一次。
+     */
+    public DanmakuTitle getMeta() {
+        if (meta == null) meta = DanmakuTitle.parse(getName());
+        return meta;
+    }
 
     public static List<Danmaku> arrayFrom(String str) {
         Type listType = TypeToken.getParameterized(List.class, Danmaku.class).getType();

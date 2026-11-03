@@ -30,6 +30,7 @@ public final class PlaybackButtonsView extends LinearLayout implements SharedPre
     private final Observer<PlayerManager> playerObserver = this::updateVisibility;
     private LiveData<PlayerManager> players;
     private int activeEngine = -1;
+    private boolean trapHorizontal;
 
     public PlaybackButtonsView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -117,6 +118,10 @@ public final class PlaybackButtonsView extends LinearLayout implements SharedPre
     }
 
     private void updateFocusNeighbors() {
+        if (trapHorizontal) {
+            chainHorizontal();
+            return;
+        }
         boolean visible = getVisibility() == VISIBLE;
         View first = getChildAt(0);
         View last = getChildAt(getChildCount() - 1);
@@ -132,9 +137,31 @@ public final class PlaybackButtonsView extends LinearLayout implements SharedPre
         }
     }
 
+    /**
+     * 浮层内使用：左右键只在本排按钮内走位，首尾各自封口，绝不把焦点带出弹层。
+     *
+     * <p>控制条那侧的 {@link #updateFocusNeighbors()} 会把首/末按钮的左/右指向控制条上的相邻按钮，
+     * 那套规则只适用于控制条；放进「播放设置」浮层后会把焦点带回控制条，所以浮层内改用排内闭环。
+     */
+    public void trapHorizontalFocus() {
+        trapHorizontal = true;
+        updateFocusNeighbors();
+    }
+
+    /** 排内左右闭环：每个按钮的左/右都指向同排相邻按钮，首尾指向自己。 */
+    private void chainHorizontal() {
+        int count = getChildCount();
+        for (int i = 0; i < count; i++) {
+            View view = getChildAt(i);
+            view.setNextFocusLeftId(i == 0 ? view.getId() : getChildAt(i - 1).getId());
+            view.setNextFocusRightId(i == count - 1 ? view.getId() : getChildAt(i + 1).getId());
+        }
+    }
+
     private void updateVisibility(PlayerManager manager) {
         int engine = manager == null ? -1 : manager.getEngine();
-        boolean visible = engine == PlayerSetting.ENGINE_MPV || engine == PlayerSetting.ENGINE_EXO;
+        // 「指令」（EXO 命令）已从播放设置移除，只保留 MPV 脚本按钮
+        boolean visible = engine == PlayerSetting.ENGINE_MPV;
         boolean restoreFocus = !visible && hasFocus();
         if (activeEngine != engine) {
             activeEngine = engine;

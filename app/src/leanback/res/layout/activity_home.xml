@@ -5,6 +5,21 @@
     android:layout_height="match_parent"
     android:background="@color/background">
 
+    <!--
+      首页右上角背景图：右上角与屏幕边缘精确贴合，左侧与底部由 FeatheredImageView
+      在运行时做 alpha 羽化，自然融入 @color/background。位于内容最底层且不参与焦点。
+      实际宽高在 HomeActivity 中按屏宽比例设置。
+    -->
+    <com.fongmi.android.NewTV.ui.custom.FeatheredImageView
+        android:id="@+id/homeHero"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_gravity="top|right"
+        android:clickable="false"
+        android:focusable="false"
+        android:focusableInTouchMode="false"
+        android:importantForAccessibility="no" />
+
     <androidx.appcompat.widget.LinearLayoutCompat
         android:layout_width="match_parent"
         android:layout_height="match_parent"

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 完整设置界面收起：与播放页浮层一致（140ms 淡出 + 回落） -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:interpolator="@android:interpolator/fast_out_linear_in">
+    <alpha
+        android:duration="140"
+        android:fromAlpha="1"
+        android:toAlpha="0" />
+    <scale
+        android:duration="140"
+        android:fromXScale="1"
+        android:fromYScale="1"
+        android:pivotX="50%"
+        android:pivotY="100%"
+        android:toXScale="1"
+        android:toYScale="0.94" />
+    <translate
+        android:duration="140"
+        android:fromYDelta="0"
+        android:toYDelta="2%" />
+</set>

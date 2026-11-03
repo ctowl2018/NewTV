@@ -123,6 +123,17 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     private static final float[] SPEEDS = {0.5f, 0.8f, 1.0f, 1.2f, 1.5f, 2.0f, 3.0f, 5.0f};
     /** 倍速浮层一屏显示的行数，其余靠滚动查看（8 档 > 5 行，因此打开时可把 1.0x 停在最底部）。 */
     private static final int SPEED_VISIBLE_ROWS = 5;
+    /**
+     * 浮层列表行的左右内边距合计，三层各 12dp、两侧共 72dp：
+     * 浮层容器（{@code view_video_sheet} 的 padding 12dp）+ 行容器（{@code view_sheet_item} 的 12dp）
+     * + 文字自身（{@code sheetItemText} 的 12dp）。
+     *
+     * <p>早先只算了后两层（48dp），漏掉浮层容器那 24dp，结果列条总比最长的一行窄 24dp：
+     * 明明按最长行量好了宽度，实际却每一行都差一两个字、被迫跑马灯。这里补齐。
+     */
+    private static final int SHEET_ROW_CHROME_DP = 72;
+    /** 「正在播放」指示器槽位宽度（10dp 图标 + 6dp 间距），只加宽列条、不占文字宽度。 */
+    private static final int SHEET_PLAYING_SLOT_DP = 16;
 
     private TextView mSheetProbe;
     private final ActivityResultLauncher<Intent> mSubtitleLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> FileChooser.getUri(result, this::setSubtitleFile));
@@ -314,6 +325,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     protected void initView(Bundle savedInstanceState) {
         super.initView(savedInstanceState);
         mHeader = ToolbarHeader.bind(this, mBinding.toolbar);
+        // 播放详情页属于需要顶部渐变遮罩的四个页面之一
+        mHeader.setScrimVisible(true);
         mFrameParams = mBinding.video.getLayoutParams();
         mClock = Clock.create(mBinding.widget.clock);
         mInput = VodInput.create(this, this);
@@ -339,8 +352,9 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mBinding.control.action.text.setOnClickListener(this::onTrack);
         mBinding.control.action.audio.setOnClickListener(this::onTrack);
         mBinding.control.action.video.setOnClickListener(this::onTrack);
-        mBinding.control.action.ending.setUpListener(this::onEndingAdd);
-        mBinding.control.action.ending.setDownListener(this::onEndingSub);
+        // 片尾的方向与片头相反：片头 ↑ 加 / ↓ 减；片尾 ↑ 减 / ↓ 加（把「越靠近结尾」对应到向上）
+        mBinding.control.action.ending.setUpListener(this::onEndingSub);
+        mBinding.control.action.ending.setDownListener(this::onEndingAdd);
         mBinding.control.action.opening.setUpListener(this::onOpeningAdd);
         mBinding.control.action.opening.setDownListener(this::onOpeningSub);
         mBinding.control.action.playPause.setOnClickListener(view -> onPlayPause());
@@ -360,6 +374,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
             onEpisodeSheet(view);
             return true;
         });
+        // 选集：点击在按钮正上方弹出选集浮层（与倍速菜单同一容器与动效）
+        mBinding.control.action.episodes.setOnClickListener(view -> onEpisodeSheet(view));
         mBinding.control.action.prev.setOnClickListener(view -> checkPrev());
         mBinding.control.action.prev.setOnLongClickListener(view -> {
             onEpisodeSheet(view);
@@ -371,6 +387,12 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mBinding.control.action.replay.setOnClickListener(view -> onReplay());
         mBinding.control.action.parse.setOnClickListener(view -> onParse());
         mBinding.control.action.player.setOnClickListener(view -> onPlayer());
+        // 调试(bug)：与上游 PlayerEngineDialog 的 ic_action_debug 一致，点击切换播放调试信息浮层
+        mBinding.control.action.debug.setOnClickListener(view -> {
+            toggleDebugView();
+            view.setSelected(PlayerSetting.isDebug());
+        });
+        mBinding.control.action.debug.setSelected(PlayerSetting.isDebug());
         mBinding.control.action.decoder.setOnClickListener(view -> onDecoder());
         mBinding.control.action.ending.setOnClickListener(view -> onEnding());
         mBinding.control.action.repeat.setOnClickListener(view -> onRepeat());
@@ -445,6 +467,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mPanelSheet = new PanelSheet(this, mBinding.control.action);
         mTrackSheet = new TrackSheet(this, this::hideSheet, this::pickSubtitleFile);
         mEpisodeList = new SheetList(this);
+        // 选集：选中行上方不足一屏时顶部对齐，避免弹窗顶部出现空行（倍速列表维持贴底）
+        mEpisodeList.setAvoidEmptyRows(true);
         mSpeedList = new SheetList(this);
         syncPlayPause();
         syncDanmaku();
@@ -456,8 +480,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         if (timeBar == null) return;
         if (timeBar instanceof androidx.media3.ui.DefaultTimeBar bar) {
             bar.setScrubberColor(ResUtil.getColor(R.color.control_scrubber));
-            // 聚焦 / 选中时在条身外围加一圈细描边发光（不含 thumb）；常态透明。
-            bar.setBackgroundResource(R.drawable.selector_seek_focus);
+            // 聚焦态不加线框：由 LeanbackTimeBar 自行绘制「条身加粗发光 + 滑块放大」
+            bar.setBackground(null);
         }
         timeBar.setOnKeyListener((view, keyCode, event) -> {
             if (!KeyUtil.isActionDown(event)) return false;
@@ -823,11 +847,49 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     @Override
     public void renderPlaybackMetadata(MediaMetadata metadata) {
         if (isPlaybackCurrent()) player().setMetadata(metadata);
-        // 左上角：片名 + 下一行的集数（metadata.subtitle）
+        // 左上角：片名与当前集数同一行，中间用「：」分隔（站点给的集数常带空格/全角空格，去掉避免「： 1」）
         mBinding.widget.title.setText(MediaItemFactory.getDisplayTitle(metadata));
-        mBinding.widget.title.setSelected(true);
-        mBinding.widget.subtitle.setText(metadata.subtitle);
-        mBinding.widget.subtitle.setVisibility(TextUtils.isEmpty(metadata.subtitle) ? View.GONE : View.VISIBLE);
+        String episode = TextUtils.isEmpty(metadata.subtitle) ? "" : trimSpace(metadata.subtitle.toString());
+        boolean hasSubtitle = !TextUtils.isEmpty(episode);
+        mBinding.widget.subtitle.setText(hasSubtitle ? "：" + episode : "");
+        mBinding.widget.subtitle.setVisibility(hasSubtitle ? View.VISIBLE : View.GONE);
+        applyTitleWidth();
+    }
+
+    /**
+     * 片名宽度按「整行可用宽度 − 集数宽度」分配。
+     *
+     * <p>用 {@code layout_weight=1} 时片名会吃掉整行剩余宽度，短片名也会把集数顶到最右边（紧挨右侧时钟）；
+     * 全改成 wrap_content 又会在长片名时把集数挤出可视区。这里取实测宽度的较小值：
+     * 短片名紧贴集数，长片名截断、集数始终完整可见。
+     */
+    private void applyTitleWidth() {
+        TextView title = mBinding.widget.title;
+        TextView subtitle = mBinding.widget.subtitle;
+        View row = mBinding.widget.titleRow;
+        row.post(() -> {
+            int rowWidth = row.getWidth();
+            if (rowWidth <= 0) return;
+            int reserved = subtitle.getVisibility() == View.VISIBLE ? measureTextWidth(subtitle) : 0;
+            int width = Math.max(0, Math.min(measureTextWidth(title), rowWidth - reserved));
+            ViewGroup.LayoutParams params = title.getLayoutParams();
+            if (params.width == width) return;
+            params.width = width;
+            title.setLayoutParams(params);
+        });
+    }
+
+    /** 去掉首尾空白，含全角空格（U+3000）与不换行空格（U+00A0）—— trim() 只处理 <= U+0020。 */
+    private String trimSpace(String text) {
+        return text.replaceAll("^[\\s\\u3000\\u00A0]+|[\\s\\u3000\\u00A0]+$", "");
+    }
+
+    /** 文本的实测像素宽（含内边距，多留 1px 防止四舍五入后又触发截断）。 */
+    private int measureTextWidth(TextView view) {
+        CharSequence text = view.getText();
+        int padding = view.getPaddingStart() + view.getPaddingEnd();
+        if (TextUtils.isEmpty(text)) return padding;
+        return (int) Math.ceil(view.getPaint().measureText(text, 0, text.length())) + padding + 1;
     }
 
     @Override
@@ -932,6 +994,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mEpisodes.clear();
         mEpisodes.addAll(items);
         mBinding.episode.setVisibility(items.isEmpty() ? View.GONE : View.VISIBLE);
+        // 控制条「选集」入口：单集没有选择意义，多集才显示
+        mBinding.control.action.episodes.setVisibility(items.size() > 1 ? View.VISIBLE : View.GONE);
         mEpisodeAdapter.addAll(items);
         setArrayAdapter(items.size());
         setR2Callback();
@@ -1284,8 +1348,10 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     /**
      * 选集浮层：上集 / 下集长按打开。
      *
-     * <p>列表倒序（最新一集在最上、第 1 集在最下），行数不超过「当前集下标 + 1」，
-     * 让正在播放的那一集正好落在最后一行 —— 离按钮最近的位置，往上是还没看的集数。
+     * <p>列表倒序（最新一集在最上、第 1 集在最下）。浮层高度只由总集数决定：
+     * 少于 6 集时自适应全部行，6 集及以上固定 6 行；不再根据「当前选中行上方的剩余行数」压缩高度
+     * （否则正在播放最后一集时 selected=0，会被压成只剩 1 行）。选中行的停靠位置见
+     * {@link SheetList#setAvoidEmptyRows(boolean)}：上方行数不足一屏时顶部对齐，避免空行。
      */
     private void onEpisodeSheet(View anchor) {
         if (mSheet.isShowing()) {
@@ -1301,7 +1367,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
             texts.add(item.getDesc().concat(item.getName()));
         }
         int current = selected;
-        mEpisodeList.submit(texts, selected, selected, position -> {
+        // 第 4 个参数是「正在播放」行：该行前面会显示均衡器小图标，其余行预留同宽槽位保证文字对齐
+        mEpisodeList.submit(texts, selected, selected, current, position -> {
             int index = mEpisodes.size() - 1 - position;
             hideSheet();
             if (index < 0 || index >= mEpisodes.size()) return;
@@ -1309,9 +1376,13 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
             if (item.isSelected()) return;
             onItemClick(item);
         });
-        int rows = Math.max(1, Math.min(Math.min(6, texts.size()), current + 1));
+        // 高度只看总集数：<6 自适应，>=6 固定 6 行；与当前选中行无关
+        int rows = Math.max(1, Math.min(6, texts.size()));
         mEpisodeList.setRows(rows);
-        int width = Math.max(measureSheetText(texts), ResUtil.dp2px(96)) + ResUtil.dp2px(24 + 16);
+        // 列条宽度按「列表里最长的一行」自适应（与当前选中行无关）：最少 3 个汉字、最多 15 个汉字，
+        // 超过 15 个汉字的部分交给条目 marquee 左右滚动；指示器槽位额外加宽，不占文字的字符宽度。
+        int textWidth = Math.min(Math.max(measureSheetText(texts), measureSheetChars(3)), measureSheetChars(15));
+        int width = textWidth + ResUtil.dp2px(SHEET_ROW_CHROME_DP + SHEET_PLAYING_SLOT_DP);
         mSheet.show(anchor == null ? mBinding.control.action.next : anchor, mEpisodeList.getView(), width, mEpisodeList::focus);
     }
 
@@ -1395,6 +1466,15 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         float max = 0;
         for (String text : texts) max = Math.max(max, mSheetProbe.getPaint().measureText(text));
         return (int) Math.ceil(max);
+    }
+
+    /** {@code count} 个 15sp 汉字的像素宽（列条的最小/最大宽度按汉字数定义）。 */
+    private int measureSheetChars(int count) {
+        if (mSheetProbe == null) {
+            mSheetProbe = new TextView(this);
+            mSheetProbe.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        }
+        return (int) Math.ceil(mSheetProbe.getPaint().measureText("汉") * count);
     }
 
     private int nearestSpeedIndex(float speed) {
@@ -1946,6 +2026,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         int keyCode = event.getKeyCode();
+        // 浮层内左右键：按键不锁死，但焦点必须留在浮层里（见 handleSheetHorizontalKey）。
+        if (mSheet != null && mSheet.isShowing() && handleSheetHorizontalKey(event)) return true;
         if (keyCode == KeyEvent.KEYCODE_MENU && KeyUtil.isActionDown(event)) mInput.cancelSeek();
         boolean discMenuShortcut = keyCode == KeyEvent.KEYCODE_MEDIA_TOP_MENU || keyCode == KeyEvent.KEYCODE_TV_CONTENTS_MENU;
         boolean discMenuNavigation = keyCode != KeyEvent.KEYCODE_MENU && isFullscreen() && !isControlVisible();
@@ -1961,6 +2043,33 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         if (KeyUtil.isMediaFastForward(event)) return onSeekForward();
         if (KeyUtil.isMediaRewind(event)) return onSeekBack();
         return super.dispatchKeyEvent(event);
+    }
+
+    /**
+     * 浮层内的左右键：按键不锁死，但焦点锁在浮层里。
+     *
+     * <p>播放设置、弹幕等浮层里既有「同一排多个按钮」也有滑块：
+     * <ul>
+     *   <li>滑块（字体缩放 / 最大滚动行数）需要左右调值 → 原样放行；</li>
+     *   <li>同一排的按钮 → 手动 focusSearch，排内左右移动；</li>
+     *   <li>焦点已经跑到浮层外，或那一侧没有浮层内的邻居 → 吃掉按键，焦点不动、绝不外逸。</li>
+     * </ul>
+     * 之前对左右键一律 return true，导致「一排多个按钮」根本无法左右切换，这里改为只兜住越界。
+     */
+    private boolean handleSheetHorizontalKey(KeyEvent event) {
+        int keyCode = event.getKeyCode();
+        if (keyCode != KeyEvent.KEYCODE_DPAD_LEFT && keyCode != KeyEvent.KEYCODE_DPAD_RIGHT) return false;
+        View focused = getCurrentFocus();
+        if (focused == null || !mSheet.contains(focused)) {
+            mSheet.requestFocusInside();
+            return true;
+        }
+        if (focused instanceof com.google.android.material.slider.Slider) return false;
+        if (event.getAction() != KeyEvent.ACTION_DOWN) return true;
+        int direction = keyCode == KeyEvent.KEYCODE_DPAD_LEFT ? View.FOCUS_LEFT : View.FOCUS_RIGHT;
+        View next = focused.focusSearch(direction);
+        if (next != null && next != focused && mSheet.contains(next)) next.requestFocus(direction);
+        return true;
     }
 
     @Override

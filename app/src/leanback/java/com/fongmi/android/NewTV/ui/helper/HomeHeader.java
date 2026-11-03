@@ -28,7 +28,6 @@ import com.fongmi.android.NewTV.ui.adapter.TypeAdapter;
 import com.fongmi.android.NewTV.ui.dialog.LocalConnectDialog;
 import com.fongmi.android.NewTV.ui.dialog.SiteDialog;
 import com.fongmi.android.NewTV.utils.Clock;
-import com.fongmi.android.NewTV.utils.ImgUtil;
 import com.fongmi.android.NewTV.utils.KeyUtil;
 import com.fongmi.android.NewTV.utils.ResUtil;
 
@@ -132,7 +131,8 @@ public class HomeHeader implements TypeAdapter.OnClickListener {
             }
             return false;
         });
-        ImgUtil.logo(binding.logoIcon);
+        // 品牌组件自带锁定：图标 / 字标固定为内置资源，不再由站点配置动态加载
+        binding.logo.refreshLocked();
         ToolbarHelper.setupLogoBlink(binding.logo);
         setTitle();
     }
@@ -298,8 +298,14 @@ public class HomeHeader implements TypeAdapter.OnClickListener {
         if (adapter.getItemCount() > 0) binding.typeNav.requestFocus();
     }
 
+    /**
+     * 站点切换 / 配置刷新后调用。
+     *
+     * <p>品牌组件已锁定：忽略站点数据里的 logo，只把内置图标与字标重新校正回固定外观，
+     * 保证运行时不会被数据源覆盖。
+     */
     public void onRefreshLogo() {
-        ImgUtil.logo(binding.logoIcon);
+        binding.logo.refreshLocked();
     }
 
     public void onResume() {
