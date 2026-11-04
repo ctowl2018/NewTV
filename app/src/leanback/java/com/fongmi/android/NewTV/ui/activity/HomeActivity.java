@@ -255,7 +255,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         mResult = result;
         setTypes();
         addVideo(result);
-        // 分类为空时这里才会把初始焦点退回内容区（有分类时已在 setTypes 落到首页胶囊）。
+        // 导航栏至少有「首页」胶囊，初始焦点落在胶囊上；极端情况下没有胶囊才退回内容区。
         setFocus();
         Cache.clear().put(result);
         // 首页数据已就绪：欢迎页等淡入播完后自动淡出

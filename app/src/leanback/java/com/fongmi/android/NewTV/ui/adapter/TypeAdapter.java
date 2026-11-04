@@ -33,10 +33,16 @@ public class TypeAdapter extends RecyclerView.Adapter<TypeAdapter.ViewHolder> {
         return type;
     }
 
+    /**
+     * 覆盖类型列表。
+     *
+     * <p>「首页」项无条件插在首位：未配置任何站源时 {@code items} 为空，
+     * 导航栏仍要保留这枚胶囊，样式与位置和有站源时保持一致。
+     */
     public void addAll(List<Class> items) {
         mItems.clear();
-        if (!items.isEmpty()) mItems.add(home());
-        mItems.addAll(items);
+        mItems.add(home());
+        if (items != null) mItems.addAll(items);
         notifyDataSetChanged();
     }
 
@@ -67,7 +73,7 @@ public class TypeAdapter extends RecyclerView.Adapter<TypeAdapter.ViewHolder> {
         return mItems.indexOf(item);
     }
 
-    /** 是否包含首页项（类型列表非空时才会插入）。 */
+    /** 是否包含首页项（任何情况下都位于第 0 位，与是否有站源无关）。 */
     public boolean hasHome() {
         return !mItems.isEmpty() && mItems.get(0).isHome();
     }

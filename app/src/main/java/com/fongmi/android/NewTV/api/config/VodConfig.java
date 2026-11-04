@@ -20,6 +20,7 @@ import com.github.catvod.bean.Proxy;
 import com.github.catvod.runtime.NodeRuntimeApi;
 import com.github.catvod.utils.Decoder;
 import com.github.catvod.utils.Json;
+import com.github.catvod.utils.Prefers;
 import com.google.gson.JsonObject;
 
 import java.util.ArrayList;
@@ -32,6 +33,10 @@ import java.util.stream.Collectors;
 public class VodConfig extends BaseConfig {
 
     private static final String TAG = VodConfig.class.getSimpleName();
+
+    /** 临时内置点播地址（本次构建专用，不校验有效性）。 */
+    private static final String TEMP_VOD_URL = "***REMOVED***";
+    private static final String TEMP_VOD_NAME = "***REMOVED***";
 
     private Site home;
     private Parse parse;
@@ -71,7 +76,22 @@ public class VodConfig extends BaseConfig {
     }
 
     public VodConfig init() {
-        return config(Config.vod());
+        return config(defaultVod());
+    }
+
+    /**
+     * 当前点播配置。
+     *
+     * <p>临时逻辑（本次构建专用）：全新安装配置表为空时，写入一个内置点播地址并直接作为当前源，
+     * 不做地址有效性校验。移除时删掉 {@link #TEMP_VOD_URL}/{@link #TEMP_VOD_NAME} 与这里的兜底即可。
+     */
+    private static Config defaultVod() {
+        Config config = Config.vod();
+        if (!config.isEmpty()) return config;
+        // 只自动写入一次：用户在界面上删掉后不再自动恢复。
+        if (Prefers.getBoolean("temp_vod_seeded")) return config;
+        Prefers.put("temp_vod_seeded", true);
+        return Config.create(VOD, TEMP_VOD_URL, TEMP_VOD_NAME);
     }
 
     public VodConfig config(Config config) {
@@ -100,7 +120,7 @@ public class VodConfig extends BaseConfig {
 
     @Override
     protected Config defaultConfig() {
-        return Config.vod();
+        return defaultVod();
     }
 
     @Override

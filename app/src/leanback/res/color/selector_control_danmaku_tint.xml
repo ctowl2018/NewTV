@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 弹幕按钮着色：与其它按钮一致，统一纯白；开关状态由图标本身（勾 / 斜线）表达。 -->
+<!-- 弹幕按钮着色：常态纯白，聚焦时品牌橙；开关状态仍由图标本身（勾 / 斜线）表达。 -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/control_scrubber" android:state_focused="true" />
     <item android:color="@color/white" />
 </selector>

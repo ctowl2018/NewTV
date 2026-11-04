@@ -5,7 +5,8 @@
   直接展示（固定顺序）：播放/暂停、上集、下集、选集 │ 弹幕、字幕、音轨、倍速、调试、播放设置 …… 片头、片尾
     · 「下集」与「弹幕」之间用 1dp 竖线分组；
     · 「片头 / 片尾」永远贴最右侧，顺序不可变，用弹性留白把这一组推过去；
-    · 图标按钮统一 50x40dp 槽位（左右各 3dp 外边距 → 相邻间距恒为 6dp），播放键 60x48dp 稍大一档。
+    · 图标按钮统一 50x40dp 槽位（左右各 3dp 外边距 → 相邻间距恒为 6dp），播放键 60x48dp 稍大一档；
+    · 「上集 / 下集 / 选集」作为集数分组收紧：槽位 46dp、相互 0 间距，整组比其它按钮更紧凑。
 
   其余按钮（刷新、重播、循环、播放器引擎、解码、画面比例、视轨、版本、章节、主菜单、解析）
   全部收进「播放设置」浮层，这里只保留在 hidden 容器中（visibility=gone）：
@@ -19,12 +20,16 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:clipChildren="false"
+    android:clipToPadding="false"
     android:fillViewport="true"
     android:scrollbars="none">
 
     <androidx.appcompat.widget.LinearLayoutCompat
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:clipChildren="false"
+        android:clipToPadding="false"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
@@ -35,14 +40,15 @@
             android:contentDescription="@string/play_pause"
             android:nextFocusLeft="@id/playPause"
             android:nextFocusRight="@id/prev"
-            android:src="@drawable/ic_control_play_tone" />
+            android:src="@drawable/selector_control_play" />
 
-        <!-- 上一集 / 下一集：与播放键贴紧成一组 -->
+        <!-- 上一集 / 下一集 / 选集：三者收紧成一个「集数」小分组（槽位宽 46dp、相互 0 间距） -->
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/prev"
             style="@style/ControlIconSlot"
-            android:layout_marginStart="1dp"
-            android:layout_marginEnd="1dp"
+            android:layout_width="46dp"
+            android:layout_marginStart="0dp"
+            android:layout_marginEnd="0dp"
             android:contentDescription="@string/play_prev"
             android:nextFocusLeft="@id/playPause"
             android:nextFocusRight="@id/next"
@@ -51,8 +57,9 @@
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/next"
             style="@style/ControlIconSlot"
-            android:layout_marginStart="1dp"
-            android:layout_marginEnd="1dp"
+            android:layout_width="46dp"
+            android:layout_marginStart="0dp"
+            android:layout_marginEnd="0dp"
             android:contentDescription="@string/play_next"
             android:nextFocusLeft="@id/prev"
             android:nextFocusRight="@id/episodes"
@@ -62,6 +69,9 @@
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/episodes"
             style="@style/ControlIconSlot"
+            android:layout_width="46dp"
+            android:layout_marginStart="0dp"
+            android:layout_marginEnd="2dp"
             android:contentDescription="@string/play_episodes"
             android:nextFocusLeft="@id/next"
             android:nextFocusRight="@id/danmaku"

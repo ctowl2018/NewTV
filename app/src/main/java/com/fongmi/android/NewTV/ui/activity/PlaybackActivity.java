@@ -773,6 +773,16 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     private void setDanmakuSource(@Nullable Uri uri) {
         // 直播弹幕（spider:// 协议）随直播功能一起移除，点播弹幕仍走 PlayerView 内置控制器。
         danmakuController.setDataSource(uri);
+        renderDanmakuTitle();
+    }
+
+    /**
+     * 弹幕来源变化后的标题刷新钩子。
+     *
+     * <p>点播页用它把右上角标题换成「弹幕接口返回的片名」（见 VideoActivity），
+     * 直播 / 其它播放页无需处理，默认空实现。
+     */
+    protected void renderDanmakuTitle() {
     }
 
     private void onDanmakuState(String state, String msg) {

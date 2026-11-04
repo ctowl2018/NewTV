@@ -82,6 +82,8 @@
     <!--
       控制条图标槽位：固定 50x40dp，左右各 3dp 外边距 → 相邻按钮间距恒为 6dp。
       槽位等宽等高，图标居中，整行视觉节奏一致；按下键不移动焦点（见 VideoActivity 的焦点绑定）。
+      焦点背景：运行时由 ControlFocusEffect 换成 GlowBackground（放大 + 橙色光晕，无描边），
+      这里的 selector_chip 只作未挂接特效时的兜底（其 padding 与 GlowBackground 完全一致）。
     -->
     <style name="ControlSlot">
         <item name="android:layout_width">50dp</item>
@@ -126,7 +128,7 @@
     <style name="ControlTextSlot" parent="ControlSlot">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">40dp</item>
-        <item name="android:textColor">@color/white</item>
+        <item name="android:textColor">@color/selector_control_text</item>
         <item name="android:minWidth">58dp</item>
         <item name="android:layout_marginStart">2dp</item>
         <item name="android:layout_marginEnd">2dp</item>

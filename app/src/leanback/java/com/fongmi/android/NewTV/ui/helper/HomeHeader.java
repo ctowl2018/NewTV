@@ -111,7 +111,11 @@ public class HomeHeader implements TypeAdapter.OnClickListener {
     private void initView() {
         binding.typeNav.setHorizontalSpacing(ResUtil.dp2px(16));
         binding.typeNav.setRowHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
+        // 先摆上「首页」胶囊：未配置站源（配置加载失败或站点没有分类）时类型列表为空，
+        // 导航栏也不能是一片空白。真实分类到达后由 setTypes() 覆盖，首页项始终留在首位。
+        adapter.addAll(Collections.emptyList());
         binding.typeNav.setAdapter(adapter);
+        select(0);
         binding.typeNav.addOnChildViewHolderSelectedListener(new OnChildViewHolderSelectedListener() {
             @Override
             public void onChildViewHolderSelected(@NonNull RecyclerView parent, @Nullable RecyclerView.ViewHolder child, int position, int subposition) {
@@ -216,18 +220,15 @@ public class HomeHeader implements TypeAdapter.OnClickListener {
     }
 
     public void setTypes(List<Class> types, int selected) {
-        if (types == null || types.isEmpty()) {
-            adapter.clear();
-            lastTypePosition = 0;
-            return;
-        }
+        // 类型为空（未配置站源）时同样保留「首页」胶囊：addAll 总会插入该项。
         adapter.addAll(types);
         lastTypePosition = Math.max(0, Math.min(selected, adapter.getItemCount() - 1));
         select(lastTypePosition);
     }
 
     public void setTypesIfEmpty(List<Class> types) {
-        if (adapter.getItemCount() > 0) return;
+        // 「首页」项始终存在，必须按真实分类是否为空判断，否则真实分类永远补不进来。
+        if (!adapter.getTypes().isEmpty()) return;
         setTypes(types);
     }
 

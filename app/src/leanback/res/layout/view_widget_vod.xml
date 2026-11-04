@@ -59,6 +59,49 @@
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 
+        <!--
+          弹幕标题（两行）：仅在「当前选中弹幕来自弹幕接口且已成功获取」时启用，
+          与上面的 titleRow 互斥显示。
+          结构与弹幕搜索结果条目一致：主行大标题「剧名 · 集数 分集标题」，副行「年份 · 类型 · 平台」。
+        -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/danmakuRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:layout_toStartOf="@+id/clock"
+            android:orientation="vertical"
+            android:visibility="gone"
+            tools:visibility="gone">
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/danmakuTitle"
+                style="@style/Shadow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:singleLine="true"
+                android:textColor="@color/white"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                tools:text="小城良方 · 第3集 摸鱼败将" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/danmakuSubtitle"
+                style="@style/Shadow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:singleLine="true"
+                android:textColor="@color/white_60"
+                android:textSize="14sp"
+                tools:text="2026 · 国产剧 · 爱奇艺" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/clock"
             style="@style/Shadow"

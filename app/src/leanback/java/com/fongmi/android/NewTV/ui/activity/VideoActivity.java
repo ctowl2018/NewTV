@@ -40,6 +40,7 @@ import com.fongmi.android.NewTV.api.DanmakuApi;
 import com.fongmi.android.NewTV.api.SiteApi;
 import com.fongmi.android.NewTV.api.config.VodConfig;
 import com.fongmi.android.NewTV.bean.Danmaku;
+import com.fongmi.android.NewTV.bean.DanmakuTitle;
 import com.fongmi.android.NewTV.bean.Episode;
 import com.fongmi.android.NewTV.bean.Flag;
 import com.fongmi.android.NewTV.bean.History;
@@ -77,6 +78,7 @@ import com.fongmi.android.NewTV.ui.adapter.QualityAdapter;
 import com.fongmi.android.NewTV.ui.adapter.QuickAdapter;
 import com.fongmi.android.NewTV.ui.custom.VodInput;
 import com.fongmi.android.NewTV.ui.custom.CustomMovement;
+import com.fongmi.android.NewTV.ui.helper.ControlFocusEffect;
 import com.fongmi.android.NewTV.ui.helper.ToolbarHeader;
 import com.fongmi.android.NewTV.ui.sheet.PanelSheet;
 import com.fongmi.android.NewTV.ui.sheet.SheetList;
@@ -423,6 +425,34 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
                 if (mEpisodeAdapter.getItemCount() > 20 && position > 1) mBinding.episode.setSelectedPosition((position - 2) * 20);
             }
         });
+        setControlFocus();
+    }
+
+    /**
+     * 控制条按钮聚焦反馈。
+     *
+     * <p>图标按钮（含播放/暂停）：放大 + 沿笔画辉光，图标染成品牌橙；
+     * 播放键保留原始配色，只把光晕放大一档；
+     * 片头、片尾只放大不发光，靠文字变橙表达焦点。
+     */
+    private void setControlFocus() {
+        View[] glow = {
+                mBinding.control.action.playPause,
+                mBinding.control.action.prev,
+                mBinding.control.action.next,
+                mBinding.control.action.episodes,
+                mBinding.control.action.danmaku,
+                mBinding.control.action.text,
+                mBinding.control.action.audio,
+                mBinding.control.action.speed,
+                mBinding.control.action.debug,
+                mBinding.control.action.panelBtn};
+        View[] scaleOnly = {
+                mBinding.control.action.opening,
+                mBinding.control.action.ending};
+        ControlFocusEffect.attach(mBinding.control.getRoot(), glow, scaleOnly);
+        // 播放键的图标比其它按钮大一圈，光晕也要相应放大，边缘过渡才明显
+        ControlFocusEffect.setHaloScale(mBinding.control.action.playPause, 1.45f);
     }
 
     @Override
@@ -501,7 +531,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
      */
     private void syncPlayPause() {
         boolean playing = isPlayRequested();
-        mBinding.control.action.playPause.setImageResource(playing ? R.drawable.ic_control_pause_tone : R.drawable.ic_control_play_tone);
+        // 用双态 selector：未聚焦纯白，聚焦保持橙 + 奶油渐变（ImageView 会在换图时立即套用当前焦点态）。
+        mBinding.control.action.playPause.setImageResource(playing ? R.drawable.selector_control_pause : R.drawable.selector_control_play);
     }
 
     /**
@@ -853,7 +884,37 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         boolean hasSubtitle = !TextUtils.isEmpty(episode);
         mBinding.widget.subtitle.setText(hasSubtitle ? "：" + episode : "");
         mBinding.widget.subtitle.setVisibility(hasSubtitle ? View.VISIBLE : View.GONE);
+        // 先定标题形态（单行 / 弹幕两行），再按最终可见性分配宽度
+        renderDanmakuTitle();
         applyTitleWidth();
+    }
+
+    /**
+     * 弹幕标题：当前选中弹幕来自弹幕接口（非片源自带）且已成功获取时，
+     * 右上角改为两行结构 —— 主行「剧名 · 集数 分集标题」、副行「年份 · 类型 · 平台」，
+     * 与弹幕搜索结果的条目同构；片源自带弹幕 / 本地弹幕 / 尚未选中时，仍用原来的「片名：集数」单行。
+     */
+    @Override
+    protected void renderDanmakuTitle() {
+        if (mBinding == null) return;
+        Danmaku selected = selectedDanmaku();
+        DanmakuTitle meta = selected == null ? null : selected.getMeta();
+        boolean danmaku = meta != null && selected.isRemote();
+        if (danmaku) {
+            String secondary = meta.getSecondary();
+            mBinding.widget.danmakuTitle.setText(meta.getPrimary());
+            mBinding.widget.danmakuSubtitle.setText(secondary);
+            mBinding.widget.danmakuSubtitle.setVisibility(TextUtils.isEmpty(secondary) ? View.GONE : View.VISIBLE);
+        }
+        mBinding.widget.danmakuRow.setVisibility(danmaku ? View.VISIBLE : View.GONE);
+        mBinding.widget.titleRow.setVisibility(danmaku ? View.GONE : View.VISIBLE);
+    }
+
+    /** 当前选中的弹幕；尚未选中（含切集后清空）时返回 null。 */
+    private Danmaku selectedDanmaku() {
+        if (service() == null) return null;
+        for (Danmaku item : player().getDanmakus()) if (item.isSelected()) return item;
+        return null;
     }
 
     /**
