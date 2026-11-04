@@ -11,9 +11,13 @@ import com.fongmi.android.NewTV.bean.Result;
 import com.fongmi.android.NewTV.player.media.MediaItemFactory;
 import com.fongmi.android.NewTV.setting.DanmakuSetting;
 
+import java.util.List;
 import java.util.function.Consumer;
 
 public final class VodPlaybackMedia {
+
+    private VodPlaybackMedia() {
+    }
 
     public static MediaMetadata metadata(History history, Episode episode) {
         String title = history.getVodName();
@@ -22,12 +26,25 @@ public final class VodPlaybackMedia {
         return MediaItemFactory.buildMetadata(title, name, history.getVodPic());
     }
 
-    public static void searchDanmaku(Result result, History history, Episode episode, Consumer<Danmaku> set, Consumer<Danmaku> add) {
-        if (!DanmakuApi.canSearch()) return;
-        if (VodConfig.get().getSite(result.getKey()).getDanmaku() == 0) return;
-        DanmakuApi.search(history.getVodName(), episode.getName(), danmaku -> {
-            if (DanmakuSetting.isSpiderFirst() && !result.getDanmaku().isEmpty()) add.accept(danmaku);
-            else set.accept(danmaku);
-        });
+    /**
+     * 搜索弹幕并装进播放器；同时把「是否拿到弹幕接口的结果」告知调用方，
+     * 供 TMDB 抓取决定用弹幕片名还是海报名称做关键字。
+     *
+     * @param onDone 成功时回传命中的弹幕（未命中为 null），失败 / 弹幕关闭时同样回传 null
+     */
+    public static void searchDanmaku(Result result, History history, Episode episode,
+                                     Consumer<Danmaku> set, Consumer<Danmaku> add, Consumer<Danmaku> onDone) {
+        if (!DanmakuApi.canSearch() || VodConfig.get().getSite(result.getKey()).getDanmaku() == 0) {
+            onDone.accept(null);
+            return;
+        }
+        DanmakuApi.search(history.getVodName(), episode.getName(), (List<Danmaku> items) -> {
+            Danmaku found = items == null ? null : items.stream().findFirst().orElse(null);
+            if (found != null) {
+                if (DanmakuSetting.isSpiderFirst() && !result.getDanmaku().isEmpty()) add.accept(found);
+                else set.accept(found);
+            }
+            onDone.accept(found);
+        }, error -> onDone.accept(null));
     }
 }

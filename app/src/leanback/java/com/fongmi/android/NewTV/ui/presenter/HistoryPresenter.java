@@ -8,6 +8,7 @@ import androidx.annotation.NonNull;
 import androidx.leanback.widget.Presenter;
 
 import com.bumptech.glide.Glide;
+import com.fongmi.android.NewTV.R;
 import com.fongmi.android.NewTV.bean.History;
 import com.fongmi.android.NewTV.databinding.AdapterVodBinding;
 import com.fongmi.android.NewTV.utils.ImgUtil;
@@ -112,6 +113,8 @@ public class HistoryPresenter extends Presenter {
         boolean same = item.getVodName().equals(item.getVodRemarks());
         ViewHolder holder = (ViewHolder) viewHolder;
         setClickListener(holder.view, item);
+        // 用带 key 的 tag 挂上影片信息：首页全局焦点监听据此把海报与 TMDB 素材关联起来。
+        holder.view.setTag(R.id.tmdb_history, item);
         holder.binding.name.setText(item.getVodName());
         // 首页历史卡片不再显示顶部站源标题（该视图仍保留在 adapter_vod.xml 里，收藏页 / 手机端继续用）
         holder.binding.site.setVisibility(View.GONE);

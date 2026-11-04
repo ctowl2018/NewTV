@@ -650,4 +650,14 @@
     <string name="search_hot_tv">Popular series</string>
     <string name="setting_search_suggest">Online suggestions</string>
     <string name="search_hot_variety">Popular shows</string>
+
+    <string name="setting_tmdb">TMDB setting</string>
+    <string name="tmdb_api">API URL</string>
+    <string name="tmdb_key">API key</string>
+    <string name="tmdb_enable">Enable TMDB fetching</string>
+    <string name="tmdb_focus">Fetch on poster focus</string>
+    <string name="tmdb_cache">Cache (backdrops)</string>
+    <string name="tmdb_cache_info">%1$d images · %2$s</string>
+    <string name="tmdb_clear">Clear cache</string>
+    <string name="tmdb_clear_confirm">Delete all cached TMDB backdrops and logos?</string>
 </resources>

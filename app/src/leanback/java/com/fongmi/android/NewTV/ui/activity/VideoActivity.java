@@ -38,6 +38,7 @@ import com.fongmi.android.NewTV.App;
 import com.fongmi.android.NewTV.R;
 import com.fongmi.android.NewTV.api.DanmakuApi;
 import com.fongmi.android.NewTV.api.SiteApi;
+import com.fongmi.android.NewTV.api.TmdbApi;
 import com.fongmi.android.NewTV.api.config.VodConfig;
 import com.fongmi.android.NewTV.bean.Danmaku;
 import com.fongmi.android.NewTV.bean.DanmakuTitle;
@@ -171,6 +172,13 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     private boolean webFullscreen;
     private boolean externalPlaybackCompleted;
     private boolean useParse;
+    /** TMDB 抓取：等「开始播放」与「片名关键字就绪」两个条件都满足才发起，每部片只抓一次。 */
+    private String mTmdbKeyword;
+    private String mTmdbPosterName;
+    private String mTmdbFetchedKey;
+    private boolean mTmdbKeywordReady;
+    private boolean mTmdbPlaybackStarted;
+    private final Runnable mTmdbFallback = this::onTmdbDanmakuTimeout;
 
     public static void push(FragmentActivity activity, String text) {
         if (TextUtils.isEmpty(text)) return;
@@ -762,7 +770,47 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     @Override
     public void loadDanmaku(Result result, History history, Episode episode) {
-        VodPlaybackMedia.searchDanmaku(result, history, episode, player()::setDanmaku, player()::addDanmaku);
+        mTmdbKeywordReady = false;
+        mTmdbKeyword = null;
+        mTmdbFetchedKey = null;
+        mTmdbPosterName = TextUtils.isEmpty(history.getVodName()) ? getName() : history.getVodName();
+        VodPlaybackMedia.searchDanmaku(result, history, episode, player()::setDanmaku, player()::addDanmaku, this::onTmdbDanmaku);
+        // 弹幕接口长时间无响应时不阻塞抓取：4 秒后按「弹幕失败」处理，回退海报名称。
+        App.post(mTmdbFallback, 4000);
+    }
+
+    /**
+     * 弹幕搜索结束（成功或失败）。只有「弹幕接口（非片源自带）返回的弹幕」才用其中的片名，
+     * 其余情况一律回退海报名称；TMDB 侧若按弹幕片名搜不到，还会用海报名再重试一次。
+     */
+    private void onTmdbDanmaku(@Nullable Danmaku danmaku) {
+        if (mTmdbKeywordReady) return;
+        String keyword = "";
+        if (danmaku != null && danmaku.isRemote() && !danmaku.isEmpty()) keyword = danmaku.getMeta().getTitle();
+        if (TextUtils.isEmpty(keyword)) keyword = mTmdbPosterName;
+        mTmdbKeyword = keyword;
+        mTmdbKeywordReady = true;
+        App.removeCallbacks(mTmdbFallback);
+        tryFetchTmdb();
+    }
+
+    private void onTmdbDanmakuTimeout() {
+        if (!mTmdbKeywordReady) onTmdbDanmaku(null);
+    }
+
+    private void tryFetchTmdb() {
+        if (!mTmdbPlaybackStarted || !mTmdbKeywordReady) return;
+        if (TextUtils.isEmpty(mTmdbKeyword)) return;
+        String key = getHistoryKey();
+        if (TextUtils.equals(key, mTmdbFetchedKey)) return;
+        mTmdbFetchedKey = key;
+        List<String> aliases = new ArrayList<>();
+        if (mHistory != null) aliases.add(mHistory.getVodName());
+        aliases.add(mTmdbPosterName);
+        aliases.add(getName());
+        aliases.add(mTmdbKeyword);
+        // 结果本身由 TmdbApi 写入本地缓存并和这些别名关联，首页最近观看按海报名即可命中。
+        TmdbApi.fetch(mTmdbKeyword, mTmdbPosterName, aliases);
     }
 
     @Override
@@ -1939,6 +1987,11 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         // 屏幕中间只在拖动 / 快进快退时出现提示层；暂停不再弹任何中间控件，
         // 顶部信息条跟随控制条显隐，不随播放状态单独开关。
         if (isDiscMenuActive() || isPlaying) hideCenter();
+        // 真正开始播放后才触发 TMDB 背景图 / logo 抓取（每部片一次，内部有缓存与去重）。
+        if (isPlaying) {
+            mTmdbPlaybackStarted = true;
+            tryFetchTmdb();
+        }
     }
 
     @Override
@@ -2261,6 +2314,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         DanmakuApi.cancel();
         RefreshEvent.keep();
         App.removeCallbacks(mR1, mR2, mR3, mR4);
+        App.removeCallbacks(mTmdbFallback);
         if (mSheet != null) mSheet.dismissNow();
         super.onDestroy();
     }

@@ -21,6 +21,7 @@ import com.fongmi.android.NewTV.impl.ConfigListener;
 import com.fongmi.android.NewTV.impl.SiteListener;
 import com.fongmi.android.NewTV.setting.PlayerSetting;
 import com.fongmi.android.NewTV.setting.Setting;
+import com.fongmi.android.NewTV.setting.TmdbSetting;
 import com.fongmi.android.NewTV.ui.base.BaseActivity;
 import com.fongmi.android.NewTV.ui.dialog.ConfigDialog;
 import com.fongmi.android.NewTV.ui.dialog.DohDialog;
@@ -78,6 +79,14 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         mBinding.incognitoText.setText(Setting.getSwitch(Setting.isIncognito()));
         mBinding.searchSuggestText.setText(Setting.getSwitch(Setting.isSearchSuggest()));
         mBinding.sizeText.setText((size = ResUtil.getStringArray(R.array.select_size))[PlayerSetting.getSize()]);
+        mBinding.tmdbText.setText(TmdbSetting.getApiUrl());
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 从子设置页返回时同步 TMDB 地址等文本。
+        if (mBinding != null) setOtherText();
     }
 
     private void setCacheText() {
@@ -98,6 +107,7 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         mBinding.backup.setOnClickListener(this::onBackup);
         mBinding.player.setOnClickListener(this::onPlayer);
         mBinding.danmaku.setOnClickListener(this::onDanmaku);
+        mBinding.tmdb.setOnClickListener(this::onTmdb);
         mBinding.restore.setOnClickListener(this::onRestore);
         mBinding.vod.setOnLongClickListener(this::onVodEdit);
         mBinding.vodHome.setOnClickListener(this::onVodHome);
@@ -165,6 +175,10 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
 
     private void onDanmaku(View view) {
         SettingDanmakuActivity.start(this);
+    }
+
+    private void onTmdb(View view) {
+        SettingTmdbActivity.start(this);
     }
 
     private void setSearchSuggest(View view) {

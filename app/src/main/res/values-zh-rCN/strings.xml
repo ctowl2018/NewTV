@@ -628,4 +628,14 @@
     <string name="search_hot_tv">热播剧集</string>
     <string name="setting_search_suggest">联网搜索建议</string>
     <string name="search_hot_variety">热门综艺</string>
+
+    <string name="setting_tmdb">TMDB 配置</string>
+    <string name="tmdb_api">API 地址</string>
+    <string name="tmdb_key">API 密钥</string>
+    <string name="tmdb_enable">启用 TMDB 抓取</string>
+    <string name="tmdb_focus">海报聚焦时抓取</string>
+    <string name="tmdb_cache">缓存（背景图）</string>
+    <string name="tmdb_cache_info">%1$d 张 · %2$s</string>
+    <string name="tmdb_clear">清理缓存</string>
+    <string name="tmdb_clear_confirm">确认删除全部 TMDB 背景图与 logo 缓存？</string>
 </resources>

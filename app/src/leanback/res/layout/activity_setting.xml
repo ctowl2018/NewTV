@@ -126,6 +126,38 @@
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 
+        <!-- TMDB 配置 -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/tmdb"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/selector_item"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:orientation="horizontal">
+
+            <com.google.android.material.textview.MaterialTextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="16dp"
+                android:text="@string/setting_tmdb"
+                android:textColor="@color/white"
+                android:textSize="18sp" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/tmdbText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="middle"
+                android:gravity="end"
+                android:singleLine="true"
+                android:textColor="@color/white"
+                android:textSize="18sp"
+                tools:text="https://***REMOVED***" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
         <!-- 海报尺寸 / 无痕模式 -->
         <androidx.appcompat.widget.LinearLayoutCompat
             android:layout_width="match_parent"

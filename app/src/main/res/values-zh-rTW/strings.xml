@@ -599,4 +599,14 @@
     <string name="search_hot_tv">熱播劇集</string>
     <string name="setting_search_suggest">聯網搜尋建議</string>
     <string name="search_hot_variety">熱門綜藝</string>
+
+    <string name="setting_tmdb">TMDB 設定</string>
+    <string name="tmdb_api">API 位址</string>
+    <string name="tmdb_key">API 金鑰</string>
+    <string name="tmdb_enable">啟用 TMDB 抓取</string>
+    <string name="tmdb_focus">海報聚焦時抓取</string>
+    <string name="tmdb_cache">快取（背景圖）</string>
+    <string name="tmdb_cache_info">%1$d 張 · %2$s</string>
+    <string name="tmdb_clear">清理快取</string>
+    <string name="tmdb_clear_confirm">確認刪除全部 TMDB 背景圖與 logo 快取？</string>
 </resources>

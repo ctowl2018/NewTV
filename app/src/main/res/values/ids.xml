@@ -2,5 +2,7 @@
 
     <item name="remove" type="id" />
     <item name="test" type="id" />
+    <!-- 首页最近观看卡片上挂 History，供右上角背景图按海报关联 TMDB 素材 -->
+    <item name="tmdb_history" type="id" />
 
 </resources>
