@@ -6,10 +6,22 @@
     android:background="@color/background">
 
     <!--
-      首页右上角背景图：图片资源为 1920x1080（1280x720 的 150%，16:9），
-      右上角与屏幕边缘精确贴合，左侧与底部由 FeatheredImageView 在运行时做 alpha 羽化，
-      自然融入 @color/background。位于内容最底层且不参与焦点。
-      实际宽高在 HomeActivity 中按屏宽比例设置（等比缩放，不变形）。
+      ===== 首页三层结构（自下而上，绘制顺序即下面的书写顺序）=====
+
+      L0 背景层  homeHero：右上角海报背景图（1920x1080 / 16:9）
+         · 位置：父容器右上贴边（top|right），top = 0、right = 屏宽
+         · 尺寸：宽 = 屏宽 × 74.4%，高按原图比例换算（HomeActivity.HERO_WIDTH_RATIO）
+         · 左侧与底部由 FeatheredImageView 运行时做 alpha 羽化，融入 @color/background
+      L1 标志层  homeLogo：当前海报对应的片名 logo（w500 PNG，透明底）
+         · 位置：右边缘 = 背景图左边缘 + 300px（跨过左侧羽化带）；
+           垂直中心 = 「导航条底边 ↔ 首张海报上方的区块标题顶边」这段留白区的正中
+         · 尺寸：306×119dp 基准，左边缘若溢出屏幕则等比缩小（不裁切、不变形）
+      L2 内容层  LinearLayoutCompat（页头 + 海报列表 + 分类分页）
+         · 永远绘制在 L0 / L1 之上：海报、文字、焦点放大都不会被背景或 logo 压住
+
+      L0 / L1 只服务首页顶部的留白区：它们不参与焦点、不接收点击，
+      随列表上翻按滚动距离淡出（logo 先退场，背景图走满留白带后退场），
+      由 HomeActivity.updateHeroScroll() 驱动；回到顶部再淡入。
     -->
     <com.fongmi.android.NewTV.ui.custom.FeatheredImageView
         android:id="@+id/homeHero"
@@ -21,6 +33,23 @@
         android:focusableInTouchMode="false"
         android:importantForAccessibility="no" />
 
+    <!--
+      L1 标志层：当前海报对应的 TMDB 片名 logo（w500 PNG，透明底）。
+      始终位于 L0 背景图之上、L2 内容层之下 —— 位置与层级见文件顶部说明。
+      换图走 HeroFade 与背景图同一时长交叉淡入；随列表上翻由 HomeActivity 统一淡出。
+    -->
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/homeLogo"
+        android:layout_width="306dp"
+        android:layout_height="119dp"
+        android:layout_gravity="top|left"
+        android:clickable="false"
+        android:focusable="false"
+        android:focusableInTouchMode="false"
+        android:importantForAccessibility="no"
+        android:scaleType="fitCenter" />
+
+    <!-- L2 内容层：页头 + 内容区，永远绘制在 L0 / L1 之上。 -->
     <androidx.appcompat.widget.LinearLayoutCompat
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -47,6 +76,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent">
 
+                <!--
+                  首页网格。列表第一项是「留白带」（HomeBandView），负责把「最近观看」的**海报顶部**
+                  压到背景图下沿之上 100px（标题仍按原有行距排在海报上方）；它是真正的列表项，
+                  会随内容一起滚动 —— 上翻时留白被带走、下面的海报立刻接上，不会在顶部留下大片静止空白。
+                  高度由 HomeActivity.applyHomeBand() 实测写入。
+                -->
                 <androidx.leanback.widget.VerticalGridView
                     android:id="@+id/recycler"
                     android:layout_width="match_parent"

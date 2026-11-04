@@ -9,6 +9,7 @@ import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.Shader;
+import android.graphics.drawable.BitmapDrawable;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.widget.FrameLayout;
@@ -25,12 +26,13 @@ import androidx.appcompat.widget.AppCompatImageView;
  * alpha 羽化（渐变透明），使边缘自然融入 App 背景色，不产生硬接缝。羽化只作用在内存位图上，
  * 不修改原始图片文件；宽高与羽化宽度都按比例计算，因此任意屏幕尺寸下视觉比例一致。</p>
  *
- * <p>羽化曲线用五点 S 形（smoothstep）而不是两点线性：线性渐变在起点和终点处存在明显的
+ * <p>羽化曲线用九点 S 形（smoothstep）而不是两点线性：线性渐变在起点和终点处存在明显的
  * 一阶不连续，肉眼能看出「开始变淡」和「完全消失」两道折线；S 曲线两端斜率为 0，
  * 过渡与背景融合得更连续。</p>
  *
- * <p>缩放：控件宽高永远按位图自身的宽高比换算（见 {@link #load(int, float)}），
- * 配合 {@link ScaleType#FIT_XY}，等比缩放到目标尺寸，不会出现拉伸变形。</p>
+ * <p>支持两种素材：内置默认图（{@link #load(int, float)}）与播放页抓取、落在本地缓存的
+ * TMDB 背景图（{@link #load(Bitmap, float)}）。后者经 {@link HeroFade} 交叉淡入，
+ * 与首页 logo 共用时长，容器尺寸始终沿用当前值，切换时布局不动。</p>
  */
 public class FeatheredImageView extends AppCompatImageView {
 
@@ -40,6 +42,10 @@ public class FeatheredImageView extends AppCompatImageView {
     private static final float BOTTOM_FADE_RATIO = 0.28f;
     /** 解码宽度上限，避免高分辨率屏幕下原图解码占用过多内存。 */
     private static final int MAX_DECODE_WIDTH = 1920;
+
+    /** 默认背景图的解码结果：切回默认图时不再重复解码资源，避免与 logo 的淡出产生先后差。 */
+    private Bitmap defaultSource;
+    private int defaultResId;
 
     /** S 形羽化的采样点位置（0 = 全透明边缘端，1 = 完全不透明的图片内部）。 */
     private static final float[] FADE_POSITIONS = {0f, 0.125f, 0.25f, 0.375f, 0.5f, 0.625f, 0.75f, 0.875f, 1f};
@@ -63,26 +69,71 @@ public class FeatheredImageView extends AppCompatImageView {
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
     }
 
-    /**
-     * 载入图片并按屏幕宽度比例定位到右上角。
-     *
-     * @param resId      图片资源
-     * @param widthRatio 图片宽度占屏幕宽度的比例
-     */
+    /** 首帧载入内置背景图，不做动画。 */
     public void load(@DrawableRes int resId, float widthRatio) {
-        Bitmap src = decode(resId);
-        if (src == null) return;
+        load(resId, widthRatio, false);
+    }
+
+    /**
+     * 载入内置背景图。
+     *
+     * @param animate true 时用交叉淡入替换当前图（从 TMDB 背景图切回默认图）
+     */
+    public void load(@DrawableRes int resId, float widthRatio, boolean animate) {
+        if (defaultSource == null || defaultSource.isRecycled() || defaultResId != resId) {
+            defaultSource = decode(resId);
+            defaultResId = resId;
+        }
+        // 源位图由本 View 长期持有，show 只能回收自己造出来的中间位图。
+        show(defaultSource, widthRatio, animate, false);
+    }
+
+    /**
+     * 载入本地缓存里的 TMDB 背景图并渐变换入。
+     *
+     * <p>传入的位图由 {@code TmdbStore} 缓存持有，这里只读取、不回收。</p>
+     */
+    public void load(@Nullable Bitmap bitmap, float widthRatio) {
+        if (bitmap == null || bitmap.isRecycled()) return;
+        show(bitmap, widthRatio, true, false);
+    }
+
+    private void show(@Nullable Bitmap src, float widthRatio, boolean animate, boolean recycleSource) {
+        if (src == null || src.isRecycled()) return;
         int targetW = Math.max(1, Math.round(getResources().getDisplayMetrics().widthPixels * widthRatio));
-        // 高度严格按原图宽高比换算，源图是 16:9（1920x1080）时目标尺寸也是 16:9，不会变形。
-        int targetH = Math.max(1, Math.round(targetW * (float) src.getHeight() / src.getWidth()));
-        Bitmap scaled = Bitmap.createScaledBitmap(src, targetW, targetH, true);
-        if (scaled != src) src.recycle();
-        Bitmap feathered = feather(scaled);
-        if (feathered != scaled) scaled.recycle();
-        setImageBitmap(feathered);
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(targetW, targetH);
+        // 首帧按原图宽高比定高度；切换素材时沿用当前尺寸，容器不跳动。
+        int targetH = getHeight() > 0 ? getHeight()
+                : Math.max(1, Math.round(targetW * (float) src.getHeight() / src.getWidth()));
+        Bitmap fitted = fit(src, targetW, targetH);
+        boolean sameAsSource = fitted == src;
+        if (recycleSource && !sameAsSource) src.recycle();
+        Bitmap feathered = feather(fitted);
+        // 只回收自己造出来的中间位图；缓存持有的源位图（fitted == src）绝不能回收。
+        if (feathered != fitted && (!sameAsSource || recycleSource)) fitted.recycle();
+        BitmapDrawable next = new BitmapDrawable(getResources(), feathered);
+        applyLayout(targetW, targetH);
+        // 与 TMDB logo 走同一个 helper：时长、交叉淡入行为完全一致，切换时两者同步。
+        HeroFade.crossFade(this, next, animate);
+    }
+
+    private void applyLayout(int width, int height) {
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(width, height);
         params.gravity = Gravity.TOP | Gravity.RIGHT;
         setLayoutParams(params);
+    }
+
+    /** 等比放大后居中裁切到目标尺寸，避免非 16:9 素材被拉伸。 */
+    private static Bitmap fit(Bitmap src, int width, int height) {
+        if (src.getWidth() == width && src.getHeight() == height) return src;
+        float scale = Math.max(width / (float) src.getWidth(), height / (float) src.getHeight());
+        int scaledW = Math.max(1, Math.round(src.getWidth() * scale));
+        int scaledH = Math.max(1, Math.round(src.getHeight() * scale));
+        Bitmap scaled = Bitmap.createScaledBitmap(src, scaledW, scaledH, true);
+        int x = Math.max(0, (scaledW - width) / 2);
+        int y = Math.max(0, (scaledH - height) / 2);
+        Bitmap out = Bitmap.createBitmap(scaled, x, y, Math.min(width, scaledW), Math.min(height, scaledH));
+        if (out != scaled) scaled.recycle();
+        return out;
     }
 
     private Bitmap decode(@DrawableRes int resId) {
