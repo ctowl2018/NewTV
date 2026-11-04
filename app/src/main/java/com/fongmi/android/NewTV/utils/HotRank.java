@@ -7,29 +7,37 @@ import androidx.annotation.NonNull;
 import com.fongmi.android.NewTV.App;
 import com.fongmi.android.NewTV.bean.Word;
 import com.github.catvod.net.OkHttp;
-import com.google.common.net.HttpHeaders;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.annotations.SerializedName;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashSet;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 
 import okhttp3.Call;
 import okhttp3.Response;
 
 /**
- * 搜索页热词数据源：腾讯热搜榜（每类 5 条）+ 360kan 榜单（补充）。
+ * 搜索页热词数据源：自建榜单接口 {@code /rank/***REMOVED***?format=json}。
  *
- * <p>腾讯接口为公开 GET（无需签名），按频道返回热搜词与热度；360kan 为原有数据源。
- * 合并规则：同类目内腾讯取前 5 条，与 360kan 按作品名称去重后交替排名
- * （腾讯、360kan 依次各取一条：T1、K1、T2、K2 …），重复时保留首次出现者。
- * 输出格式沿用 {@code {"data":[{"title":"..."}]}}，与搜索页原有结构一致。
+ * <p>接口一次返回优酷 / 爱奇艺 / 腾讯视频 / 芒果TV 四个平台的电影、电视剧、综艺榜单，
+ * 单次请求即可拿到全部类目，按 {@code category} 抽出当前类目后合并。
+ *
+ * <p>合并规则沿用旧版的「交替排名」，只是来源从 2 个扩到 4 个：
+ * 按来源优先级轮转取词 —— 电影 / 电视剧 依次 爱奇艺 → 腾讯视频 → 芒果TV → 优酷，
+ * 综艺 依次 芒果TV → 爱奇艺 → 腾讯视频 → 优酷；每轮各来源取 1 条，循环到凑满 {@link #LIMIT} 条。
+ * 同一作品在多个来源出现时只保留排位靠前的那条（先被取到者），并按作品名去重。
+ *
+ * <p>回退：某来源 {@code error} 非空、{@code items} 为空或已取尽时，直接跳过并由下一优先级补位；
+ * 全部来源都无数据时返回 {@code null}，调用方 {@code requestRank} 会忽略，不会覆盖已有缓存。
+ *
+ * <p>输出格式沿用 {@code {"data":[{"title":"..."}]}}，与搜索页原有结构一致。
  */
 public class HotRank {
 
@@ -37,49 +45,37 @@ public class HotRank {
     public static final int TV = 3;
     public static final int VARIETY = 4;
 
-    private static final String TENCENT_URL = "https://pbaccess.video.qq.com/trpc.tencentvideohotlistdata.hotlistdata.DoSearchHotListHttp/getSearchHotListHttp";
-    private static final String TENCENT_REFERER = "https://v.qq.com/ranks/pages/index.html";
-    private static final String KAN_URL = "https://api.web.360kan.com/v1/rank?cat=";
-    private static final String KAN_REFERER = "https://www.360kan.com/rank/general";
-    /** 腾讯每个分类最多取多少条。 */
-    private static final int TENCENT_LIMIT = 5;
+    private static final String RANK_URL = "http://***REMOVED***/rank/***REMOVED***?format=json";
+    /** 每个类目最多输出多少条，与搜索页的 HOT_LIMIT 对齐。 */
+    private static final int LIMIT = 10;
+
+    /** 电影 / 电视剧的来源优先级；优酷排在最后兜底。 */
+    private static final String[] PRIORITY_VIDEO = {"爱奇艺", "腾讯视频", "芒果TV", "优酷"};
+    /** 综艺的来源优先级；优酷排在最后兜底。 */
+    private static final String[] PRIORITY_VARIETY = {"芒果TV", "爱奇艺", "腾讯视频", "优酷"};
+
+    /** 去重时忽略的修饰符：空白、常见标点、间隔号。 */
+    private static final Pattern NOISE = Pattern.compile("[\\s·・•\\-—–~～!！?？:：;；,，、。.()（）\\[\\]【】《》<>\\u2018\\u2019\\u201C\\u201D]");
+    /** 去重时忽略的版本后缀，如「空枪 粤语版」「知否 TV版」。 */
+    private static final Pattern VERSION = Pattern.compile("(?:粤语|国语|潮汕话|普通话|英语|日语|韩语|原声|配音|TV|完整|加长|精编|番外)版$", Pattern.CASE_INSENSITIVE);
 
     public interface Callback {
 
         void onResult(String json);
     }
 
-    private interface Body {
-
-        void onBody(String body);
+    private static String[] priority(int cat) {
+        return cat == VARIETY ? PRIORITY_VARIETY : PRIORITY_VIDEO;
     }
 
-    /** 腾讯频道号：电影 1 / 电视剧 2 / 综艺 10。 */
-    private static int channel(int cat) {
-        if (cat == MOVIE) return 1;
-        if (cat == TV) return 2;
-        return 10;
-    }
-
-    private static String tencentUrl(int cat) {
-        return TENCENT_URL + "?ChannelID=" + channel(cat) + "&PageSize=" + TENCENT_LIMIT + "&PageNum=0&SceneID=2";
+    private static String category(int cat) {
+        if (cat == MOVIE) return "电影";
+        if (cat == TV) return "电视剧";
+        return "综艺";
     }
 
     public static void fetch(int cat, Callback callback) {
-        final String[] tencent = {null};
-        final String[] kan = {null};
-        final AtomicInteger left = new AtomicInteger(2);
-        Runnable done = () -> {
-            if (left.decrementAndGet() != 0) return;
-            callback.onResult(merge(tencent[0], kan[0]));
-        };
-        get(tencentUrl(cat), TENCENT_REFERER, body -> tencent[0] = body, done);
-        get(KAN_URL + cat, KAN_REFERER, body -> kan[0] = body, done);
-    }
-
-    private static void get(String url, String referer, Body body, Runnable done) {
-        Map<String, String> headers = Collections.singletonMap(HttpHeaders.REFERER, referer);
-        OkHttp.newCall(url, headers).enqueue(new okhttp3.Callback() {
+        OkHttp.newCall(RANK_URL).enqueue(new okhttp3.Callback() {
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) {
                 String text = null;
@@ -87,30 +83,55 @@ public class HotRank {
                     text = response.body() != null ? response.body().string() : null;
                 } catch (IOException ignored) {
                 }
-                if (!TextUtils.isEmpty(text)) body.onBody(text);
-                done.run();
+                callback.onResult(merge(text, cat));
             }
 
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                done.run();
+                callback.onResult(null);
             }
         });
     }
 
-    private static String merge(String tencentJson, String kanJson) {
-        List<String> tencent = parseTencent(tencentJson);
-        List<String> kan = parseKan(kanJson);
-        // 交替排名：腾讯、360kan 依次各取一条（T1、K1、T2、K2 …），以作品名称为依据去重，
-        // 重复时保留首次出现者（即排名更靠前者）。
-        LinkedHashSet<String> seen = new LinkedHashSet<>();
-        List<String> merged = new ArrayList<>();
-        int ti = 0, ki = 0;
-        while (ti < tencent.size() || ki < kan.size()) {
-            if (ti < tencent.size()) add(merged, seen, tencent.get(ti++));
-            if (ki < kan.size()) add(merged, seen, kan.get(ki++));
+    private static String merge(String json, int cat) {
+        RankResponse resp = parse(json);
+        if (resp == null || resp.lists == null || resp.lists.isEmpty()) return null;
+        String category = category(cat);
+        Map<String, List<String>> bySite = new LinkedHashMap<>();
+        for (RankList list : resp.lists) {
+            if (list == null || !category.equals(list.category)) continue;
+            // 该平台抓取失败（error 非空）或没取到条目时直接跳过，由下一优先级补位。
+            if (!TextUtils.isEmpty(list.error) || list.items == null || list.items.isEmpty()) continue;
+            List<String> titles = bySite.get(list.site);
+            if (titles == null) bySite.put(list.site, titles = new ArrayList<>());
+            for (RankItem item : list.items) {
+                if (item != null && !TextUtils.isEmpty(item.title)) titles.add(item.title.trim());
+            }
         }
-        // 两路都失败时不返回空数组，避免把已有缓存覆盖成空。
+        if (bySite.isEmpty()) return null;
+        // 按优先级排好取词队列；接口里出现但优先级表未列出的来源追加到末尾，避免丢数据。
+        List<List<String>> queues = new ArrayList<>();
+        for (String site : priority(cat)) {
+            List<String> titles = bySite.remove(site);
+            if (titles != null) queues.add(titles);
+        }
+        queues.addAll(bySite.values());
+        // 轮转取词：A1、T1、M1、A2、T2、M2 …，按作品名去重后最多取 LIMIT 条。
+        Map<String, Integer> index = new HashMap<>();
+        List<String> merged = new ArrayList<>();
+        int[] cursor = new int[queues.size()];
+        while (merged.size() < LIMIT) {
+            boolean moved = false;
+            for (int i = 0; i < queues.size() && merged.size() < LIMIT; i++) {
+                List<String> queue = queues.get(i);
+                while (cursor[i] < queue.size()) {
+                    moved = true;
+                    if (add(merged, index, queue.get(cursor[i]++))) break;
+                }
+            }
+            if (!moved) break;
+        }
+        // 所有来源都没取到词时返回 null，避免把已有缓存覆盖成空。
         if (merged.isEmpty()) return null;
         JsonArray array = new JsonArray();
         for (String title : merged) {
@@ -123,74 +144,59 @@ public class HotRank {
         return root.toString();
     }
 
-    private static void add(List<String> out, LinkedHashSet<String> seen, String title) {
-        if (TextUtils.isEmpty(title)) return;
+    private static boolean add(List<String> out, Map<String, Integer> index, String raw) {
         // 与展示层一致地做一次简繁转换后再去重，避免两种写法被当成两个作品。
-        String key = Word.Data.create(title.trim()).getTitle();
-        if (TextUtils.isEmpty(key) || !seen.add(key)) return;
-        out.add(key);
-    }
-
-    private static List<String> parseTencent(String json) {
-        List<String> titles = new ArrayList<>();
-        if (TextUtils.isEmpty(json)) return titles;
-        try {
-            TencentResp resp = App.gson().fromJson(json, TencentResp.class);
-            if (resp == null || resp.data == null || resp.data.results == null) return titles;
-            for (Result result : resp.data.results) {
-                if (result == null || result.result == null || result.result.list == null) continue;
-                for (Item item : result.result.list) {
-                    if (item == null || TextUtils.isEmpty(item.query)) continue;
-                    String key = Word.Data.create(item.query.trim()).getTitle();
-                    if (!TextUtils.isEmpty(key) && !titles.contains(key)) titles.add(key);
-                    if (titles.size() >= TENCENT_LIMIT) return titles;
-                }
-            }
-        } catch (Exception ignored) {
+        String title = Word.Data.create(raw).getTitle();
+        if (TextUtils.isEmpty(title)) return false;
+        String key = normalize(title);
+        if (TextUtils.isEmpty(key)) return false;
+        Integer at = index.get(key);
+        if (at != null) {
+            // 同一作品重复出现：排位保持不变，但若这次的写法更干净（少了「粤语版」「第 3 季」等修饰）就换掉文案。
+            if (title.length() < out.get(at).length()) out.set(at, title);
+            return false;
         }
-        return titles;
+        index.put(key, out.size());
+        out.add(title);
+        return true;
     }
 
-    private static List<String> parseKan(String json) {
-        List<String> titles = new ArrayList<>();
-        if (TextUtils.isEmpty(json)) return titles;
+    private static String normalize(String title) {
+        String key = NOISE.matcher(title).replaceAll("");
+        key = VERSION.matcher(key).replaceAll("");
+        return key.toLowerCase(Locale.ROOT);
+    }
+
+    private static RankResponse parse(String json) {
+        if (TextUtils.isEmpty(json)) return null;
         try {
-            for (Word.Data data : Word.objectFrom(json).getData()) {
-                String key = Word.Data.create(data.getTitle().trim()).getTitle();
-                if (!TextUtils.isEmpty(key) && !titles.contains(key)) titles.add(key);
-            }
-        } catch (Exception ignored) {
+            return App.gson().fromJson(json, RankResponse.class);
+        } catch (Exception e) {
+            return null;
         }
-        return titles;
     }
 
-    private static class TencentResp {
+    private static class RankResponse {
 
-        @SerializedName("data")
-        private TencentData data;
+        @SerializedName("lists")
+        private List<RankList> lists;
     }
 
-    private static class TencentData {
+    private static class RankList {
 
-        @SerializedName("Results")
-        private List<Result> results;
+        @SerializedName("site")
+        private String site;
+        @SerializedName("category")
+        private String category;
+        @SerializedName("error")
+        private String error;
+        @SerializedName("items")
+        private List<RankItem> items;
     }
 
-    private static class Result {
+    private static class RankItem {
 
-        @SerializedName("Result")
-        private ListInfo result;
-    }
-
-    private static class ListInfo {
-
-        @SerializedName("ListInfo")
-        private List<Item> list;
-    }
-
-    private static class Item {
-
-        @SerializedName("Query")
-        private String query;
+        @SerializedName("title")
+        private String title;
     }
 }

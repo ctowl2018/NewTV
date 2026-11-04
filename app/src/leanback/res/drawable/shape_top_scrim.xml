@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  顶部渐变遮罩：顶部最深为 50% 黑（#80000000），向下线性过渡到完全透明。
+  顶部渐变遮罩：顶部最深为 75% 黑（#BF000000），向下线性过渡到完全透明。
   angle=270 表示从顶部到底部（startColor 在顶部、endColor 在底部）。
 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
@@ -9,7 +9,7 @@
     <gradient
         android:angle="270"
         android:endColor="#00000000"
-        android:startColor="#80000000"
+        android:startColor="#BF000000"
         android:type="linear" />
 
 </shape>
