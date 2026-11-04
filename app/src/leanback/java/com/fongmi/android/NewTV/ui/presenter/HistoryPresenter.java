@@ -39,6 +39,11 @@ public class HistoryPresenter extends Presenter {
      */
     private static final int BASE_COLUMN = 6;
     private static final float BASE_SCALE = 0.7f;
+    /** 历史卡片上文字的字号（sp）：海报缩到 70% 后，12sp 与图片尺寸相称。 */
+    private static final float TEXT_SIZE_SP = 12f;
+    /** 片名容器的内边距（dp）：左右保持 6dp，上下由 6dp 收到 3dp 以贴合 12sp 文字。 */
+    private static final int NAME_PADDING_H_DP = 6;
+    private static final int NAME_PADDING_V_DP = 3;
 
     private void setLayoutSize() {
         int space = ResUtil.dp2px(48) + ResUtil.dp2px(16 * (BASE_COLUMN - 1));
@@ -79,7 +84,26 @@ public class HistoryPresenter extends Presenter {
         ViewHolder holder = new ViewHolder(AdapterVodBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false));
         holder.binding.getRoot().getLayoutParams().width = width;
         holder.binding.image.getLayoutParams().height = height;
+        applyCompactText(holder.binding);
         return holder;
+    }
+
+    /**
+     * 卡片文字统一 12sp，并同步收缩片名容器的高度。
+     *
+     * <p>只改运行时属性，不动 {@code adapter_vod.xml}：该布局还被收藏页（KeepAdapter）
+     * 和手机端（HistoryAdapter）共用，它们保持原先 16sp 的规格。</p>
+     *
+     * <p>高度收缩靠内边距而不是写死高度：上下 6dp → 3dp、关掉字体额外留白，
+     * 片名块正好包住一行 12sp 文字（31dp 左右收到 21dp 左右）；系统字体放大时也不会被裁切。</p>
+     */
+    private void applyCompactText(AdapterVodBinding binding) {
+        binding.name.setTextSize(TEXT_SIZE_SP);
+        binding.remark.setTextSize(TEXT_SIZE_SP);
+        binding.name.setIncludeFontPadding(false);
+        int h = ResUtil.dp2px(NAME_PADDING_H_DP);
+        int v = ResUtil.dp2px(NAME_PADDING_V_DP);
+        binding.name.setPadding(h, v, h, v);
     }
 
     @Override
