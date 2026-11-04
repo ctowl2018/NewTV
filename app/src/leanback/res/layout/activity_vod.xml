@@ -1,19 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:background="@color/background">
 
-    <include
-        android:id="@+id/header"
-        layout="@layout/view_home_header"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
-
-    <com.fongmi.android.NewTV.ui.custom.CustomViewPager
-        android:id="@+id/pager"
-        android:layout_width="match_parent"
+    <!--
+      分类页右上角背景图：与首页共用同一个控件、同一套羽化规则。
+      右上角贴屏幕边缘，左侧与底部由 FeatheredImageView 在运行时做 alpha 羽化，
+      自然融入 @color/background；位于内容最底层，不参与焦点。
+      实际宽高在 VodActivity 中按屏宽比例设置。
+    -->
+    <com.fongmi.android.NewTV.ui.custom.FeatheredImageView
+        android:id="@+id/vodHero"
+        android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_gravity="top|right"
+        android:clickable="false"
+        android:focusable="false"
+        android:focusableInTouchMode="false"
+        android:importantForAccessibility="no"
+        tools:ignore="ContentDescription" />
 
-</androidx.appcompat.widget.LinearLayoutCompat>
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <include
+            android:id="@+id/header"
+            layout="@layout/view_home_header"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <com.fongmi.android.NewTV.ui.custom.CustomViewPager
+            android:id="@+id/pager"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+    </androidx.appcompat.widget.LinearLayoutCompat>
+
+</FrameLayout>

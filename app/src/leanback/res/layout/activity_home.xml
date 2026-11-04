@@ -6,9 +6,10 @@
     android:background="@color/background">
 
     <!--
-      首页右上角背景图：右上角与屏幕边缘精确贴合，左侧与底部由 FeatheredImageView
-      在运行时做 alpha 羽化，自然融入 @color/background。位于内容最底层且不参与焦点。
-      实际宽高在 HomeActivity 中按屏宽比例设置。
+      首页右上角背景图：图片资源为 1920x1080（1280x720 的 150%，16:9），
+      右上角与屏幕边缘精确贴合，左侧与底部由 FeatheredImageView 在运行时做 alpha 羽化，
+      自然融入 @color/background。位于内容最底层且不参与焦点。
+      实际宽高在 HomeActivity 中按屏宽比例设置（等比缩放，不变形）。
     -->
     <com.fongmi.android.NewTV.ui.custom.FeatheredImageView
         android:id="@+id/homeHero"

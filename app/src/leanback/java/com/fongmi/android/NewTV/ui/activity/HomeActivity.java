@@ -94,6 +94,9 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private static final long SPLASH_TIMEOUT = 8000L;
     /** 首页「首页」胶囊上连按两次返回退出：两次间隔上限。 */
     private static final long BACK_EXIT_WINDOW = 2000L;
+    /** 行内海报的横向间距（dp）：「最近观看」4.5 个海报的行宽也按这个值推算。 */
+    private static final int ROW_SPACING_DP = 16;
+
     private static volatile int instanceCount;
 
     public static boolean isRunning() {
@@ -233,10 +236,15 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         selector.addPresenter(Integer.class, new HeaderPresenter());
         selector.addPresenter(String.class, new ProgressPresenter());
         selector.addPresenter(Vod.class, new VodPresenter(this, Style.list()));
-        selector.addPresenter(ListRow.class, new CustomRowPresenter(16), VodPresenter.class);
-        selector.addPresenter(ListRow.class, new CustomRowPresenter(16, FocusHighlight.ZOOM_FACTOR_SMALL, HorizontalGridView.FOCUS_SCROLL_ALIGNED), HistoryPresenter.class);
+        selector.addPresenter(ListRow.class, new CustomRowPresenter(ROW_SPACING_DP), VodPresenter.class);
+        mPresenter = new HistoryPresenter(this);
+        // 「最近观看」行宽固定为 4.5 个海报：左边起点仍贴着列表内边距，只把右边界收进来。
+        CustomRowPresenter historyRow = new CustomRowPresenter(ROW_SPACING_DP, FocusHighlight.ZOOM_FACTOR_SMALL, HorizontalGridView.FOCUS_SCROLL_ALIGNED);
+        historyRow.setRowWidth(mPresenter.getRowWidth(ResUtil.dp2px(ROW_SPACING_DP)));
+        selector.addPresenter(ListRow.class, historyRow, HistoryPresenter.class);
         mBinding.recycler.setAdapter(new ItemBridgeAdapter(mAdapter = new ArrayObjectAdapter(selector)));
-        mBinding.recycler.setVerticalSpacing(ResUtil.dp2px(16));
+        // 行间距 16dp → 8dp：首页「区块标题 ↔ 海报」之间的空白只有这一层，收紧后标题更贴海报。
+        mBinding.recycler.setVerticalSpacing(ResUtil.dp2px(8));
     }
 
     private void setPager() {
@@ -278,7 +286,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     }
 
     private void setAdapter() {
-        mHistoryAdapter = new ArrayObjectAdapter(mPresenter = new HistoryPresenter(this));
+        mHistoryAdapter = new ArrayObjectAdapter(mPresenter);
         mAdapter.add(R.string.home_history);
         mAdapter.add(R.string.home_recommend);
     }

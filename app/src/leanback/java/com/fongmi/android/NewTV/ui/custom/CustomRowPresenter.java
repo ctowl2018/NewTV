@@ -1,6 +1,7 @@
 package com.fongmi.android.NewTV.ui.custom;
 
 import android.annotation.SuppressLint;
+import android.view.ViewGroup;
 
 import androidx.leanback.widget.FocusHighlight;
 import androidx.leanback.widget.HorizontalGridView;
@@ -18,6 +19,8 @@ public class CustomRowPresenter extends ListRowPresenter {
 
     private final int spacing;
     private final int strategy;
+    /** > 0 时把行内网格固定成这个宽度（px）：只收窄右边，左边起点不变。 */
+    private int rowWidth;
     private RecyclerView.RecycledViewPool recycledViewPool;
     private ArrayList<Presenter> presenterMapper;
 
@@ -39,6 +42,15 @@ public class CustomRowPresenter extends ListRowPresenter {
         setKeepChildForeground(false);
     }
 
+    /**
+     * 固定行内容宽度（px）。用于首页「最近观看」：宽度按 4.5 个海报算，只收右边界，
+     * 行起点仍贴着列表的左内边距，其它行的宽度与位置一概不受影响。
+     */
+    public CustomRowPresenter setRowWidth(int rowWidth) {
+        this.rowWidth = rowWidth;
+        return this;
+    }
+
     @Override
     @SuppressLint("RestrictedApi")
     protected void initializeRowViewHolder(RowPresenter.ViewHolder holder) {
@@ -47,6 +59,13 @@ public class CustomRowPresenter extends ListRowPresenter {
         HorizontalGridView grid = vh.getGridView();
         grid.setFocusScrollStrategy(strategy);
         grid.setHorizontalSpacing(ResUtil.dp2px(spacing));
+        if (rowWidth > 0) {
+            ViewGroup.LayoutParams params = grid.getLayoutParams();
+            if (params != null) {
+                params.width = rowWidth;
+                grid.setLayoutParams(params);
+            }
+        }
         if (recycledViewPool == null) recycledViewPool = grid.getRecycledViewPool();
         else grid.setRecycledViewPool(recycledViewPool);
         ItemBridgeAdapter adapter = vh.getBridgeAdapter();

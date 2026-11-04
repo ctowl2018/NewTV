@@ -18,6 +18,7 @@ import androidx.viewbinding.ViewBinding;
 import androidx.viewpager.widget.ViewPager;
 
 import com.fongmi.android.NewTV.App;
+import com.fongmi.android.NewTV.R;
 import com.fongmi.android.NewTV.api.config.VodConfig;
 import com.fongmi.android.NewTV.bean.Class;
 import com.fongmi.android.NewTV.bean.Result;
@@ -39,6 +40,9 @@ import java.util.List;
 import java.util.Optional;
 
 public class VodActivity extends BaseActivity implements HomeHeader.Host, ContentFocusHost, SiteListener {
+
+    /** 分类页右上角背景图宽度占屏宽的比例（与首页一致，视觉重量统一）；高度按原图 16:9 自动换算。 */
+    private static final float HERO_WIDTH_RATIO = 0.744f;
 
     private ActivityVodBinding mBinding;
     private HomeHeader mHeader;
@@ -136,9 +140,15 @@ public class VodActivity extends BaseActivity implements HomeHeader.Host, Conten
 
     @Override
     protected void initView(Bundle savedInstanceState) {
+        setupHero();
         setHeader();
         setTypes();
         setPager();
+    }
+
+    /** 分类页右上角背景图：与首页同一个控件与羽化规则，按屏宽比例定尺寸，右上角贴边。 */
+    private void setupHero() {
+        mBinding.vodHero.load(R.drawable.vod_hero, HERO_WIDTH_RATIO);
     }
 
     @Override
