@@ -22,6 +22,11 @@ import java.util.Objects;
 @Root(strict = false)
 public class Class implements Parcelable, Diffable<Class> {
 
+    /** 类型栏前置哨兵的固定 typeId：最近观看（沿用历史值，isHome() 判定不变）。 */
+    public static final String TYPE_HOME = "home";
+    /** 类型栏前置哨兵的固定 typeId：更新推荐（独立页面，数据来自 homeContent）。 */
+    public static final String TYPE_RECOMMEND = "recommend";
+
     @Attribute(name = "id", required = false)
     @SerializedName(value = "type_id", alternate = "id")
     private String typeId;
@@ -127,7 +132,17 @@ public class Class implements Parcelable, Diffable<Class> {
     }
 
     public boolean isHome() {
-        return "home".equals(getTypeId());
+        return TYPE_HOME.equals(getTypeId());
+    }
+
+    /** 是否为「更新推荐」哨兵页：它不是站点分类，数据由 homeContent 提供。 */
+    public boolean isRecommend() {
+        return TYPE_RECOMMEND.equals(getTypeId());
+    }
+
+    /** 是否为类型栏里的前置固定页（不对应站点分类、不参与分页筛选）。 */
+    public boolean isBuiltIn() {
+        return isHome() || isRecommend();
     }
 
     public boolean isFolder() {

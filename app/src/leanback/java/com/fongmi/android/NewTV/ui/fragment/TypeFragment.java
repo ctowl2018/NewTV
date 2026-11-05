@@ -22,6 +22,7 @@ import com.fongmi.android.NewTV.Product;
 import com.fongmi.android.NewTV.R;
 import com.fongmi.android.NewTV.api.config.VodConfig;
 import com.fongmi.android.NewTV.bean.Cache;
+import com.fongmi.android.NewTV.bean.Class;
 import com.fongmi.android.NewTV.bean.Filter;
 import com.fongmi.android.NewTV.bean.Result;
 import com.fongmi.android.NewTV.bean.Site;
@@ -38,6 +39,7 @@ import com.fongmi.android.NewTV.ui.custom.CustomRowPresenter;
 import com.fongmi.android.NewTV.ui.custom.CustomScroller;
 import com.fongmi.android.NewTV.ui.custom.CustomSelector;
 import com.fongmi.android.NewTV.ui.presenter.FilterPresenter;
+import com.fongmi.android.NewTV.ui.presenter.HeaderPresenter;
 import com.fongmi.android.NewTV.ui.presenter.VodPresenter;
 import com.fongmi.android.NewTV.utils.KeyUtil;
 import com.fongmi.android.NewTV.utils.ResUtil;
@@ -59,6 +61,21 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
     private List<Filter> mFilters;
     private boolean headerVisible;
     private boolean filterVisible;
+
+    /**
+     * 是否为「更新推荐」页。
+     *
+     * <p>该页复用分类页的全部框架（布局、Presenter、滚动、上下行焦点、选中项复位），
+     * 只把数据源换成 {@code homeContent}，并额外保留一行「更新推荐」标题。</p>
+     */
+    private boolean isRecommend() {
+        return Class.TYPE_RECOMMEND.equals(getTypeId());
+    }
+
+    /** 列表里「不可移除的前置行」数量：展开的筛选行 + 推荐页的固定标题行。 */
+    private int baseSize() {
+        return filterSize() + (isRecommend() ? 1 : 0);
+    }
 
     public static TypeFragment newInstance(String key, String typeId, Style style, HashMap<String, String> extend, boolean folder) {
         Bundle args = new Bundle();
@@ -93,6 +110,8 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
     }
 
     private List<Filter> getFilter() {
+        // 推荐页不是站点分类，没有二级筛选，也不该去父 Fragment 取 typeId。
+        if (isRecommend()) return new ArrayList<>();
         String typeId = getTypeId();
         if (!Cache.contains(typeId)) typeId = getParent().getType().getTypeId();
         return Cache.copy(typeId);
@@ -117,9 +136,18 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
         mExtends = getExtend();
         mFilters = getFilter();
         setRecyclerView();
-        setViewModel();
+        // 拆页后「更新推荐」仍保留自己的标签：页面顶部一行标题，样式与最近观看一致。
+        if (isRecommend()) mAdapter.add(R.string.home_recommend);
         setFilters();
-        getVideo();
+        if (isRecommend()) {
+            // 先复位成进度态再订阅：共享 LiveData 里若已有结果，订阅回调会同步把它渲染出来，
+            // 顺序反过来会被这里的复位清掉，表现为「返回该页后一直转圈」。
+            getVideo();
+            setViewModel();
+        } else {
+            setViewModel();
+            getVideo();
+        }
     }
 
     @Override
@@ -136,6 +164,7 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
     @SuppressLint("RestrictedApi")
     private void setRecyclerView() {
         CustomSelector selector = new CustomSelector();
+        selector.addPresenter(Integer.class, new HeaderPresenter());
         selector.addPresenter(Vod.class, new VodPresenter(this, Style.list()));
         selector.addPresenter(ListRow.class, new CustomRowPresenter(16), VodPresenter.class);
         selector.addPresenter(ListRow.class, new CustomRowPresenter(8, FocusHighlight.ZOOM_FACTOR_NONE, HorizontalGridView.FOCUS_SCROLL_ALIGNED), FilterPresenter.class);
@@ -150,6 +179,15 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
     }
 
     private void setViewModel() {
+        if (isRecommend()) {
+            // 首页数据由 HomeActivity 统一加载：这里取 Activity 作用域的同一份 SiteViewModel，
+            // 只订阅结果，避免重复发起 homeContent 请求。LiveData 会向后创建的页面补发最后一次结果，
+            // 所以「页面先建好、数据后到」与「数据先到、页面后建」都能正常工作。
+            // 不订阅 getAction()：HomeActivity 已订阅，重复订阅会让动作被处理两次。
+            mViewModel = new ViewModelProvider(requireActivity()).get(SiteViewModel.class);
+            mViewModel.getResult().observe(getViewLifecycleOwner(), this::setAdapter);
+            return;
+        }
         mViewModel = new ViewModelProvider(this).get(SiteViewModel.class);
         mViewModel.getResult().observe(getViewLifecycleOwner(), this::setAdapter);
         mViewModel.getAction().observe(getViewLifecycleOwner(), result -> WebActivity.handleAction(requireActivity(), result));
@@ -171,6 +209,9 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
         mLast = null;
         checkFilter();
         mScroller.reset();
+        // 推荐页不自己发请求：HomeActivity 加载完配置后会调 homeContent()，
+        // 结果通过共享 ViewModel 送到这里。首次进入先停在进度态等结果即可。
+        if (isRecommend()) return;
         getVideo(getTypeId(), "1");
     }
 
@@ -179,6 +220,14 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
     }
 
     private void setAdapter(Result result) {
+        if (isRecommend()) {
+            // homeContent 是一次性结果：每次刷新都从固定标题行之后重建海报行，
+            // 不能走分类页的「分页追加」逻辑，否则重复刷新会不断堆叠旧数据。
+            int base = baseSize();
+            if (mAdapter.size() > base) mAdapter.removeItems(base, mAdapter.size() - base);
+            mLast = null;
+            mScroller.reset();
+        }
         boolean first = mScroller.first();
         boolean flag = mExtends.isEmpty();
         int size = result.getList().size();
@@ -196,7 +245,8 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
     }
 
     private void checkMore() {
-        if (mScroller.isDisable() || mAdapter.size() >= 5) return;
+        // 首页推荐是一次性结果，没有页码，禁止触发分类页的「滚动到底加载下一页」。
+        if (isRecommend() || mScroller.isDisable() || mAdapter.size() >= 5) return;
         mScroller.checkMore();
     }
 
@@ -247,17 +297,18 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
     }
 
     public void toggleFilter(boolean visible) {
-        if (mFilters.isEmpty()) return;
+        if (isRecommend() || mFilters.isEmpty()) return;
         this.filterVisible = visible;
         if (visible) showFilter();
         else hideFilter();
     }
 
     private void checkFilter() {
+        int base = baseSize();
         int adapterSize = mAdapter.size();
-        int filterSize = filterSize();
-        if (adapterSize > filterSize) mAdapter.removeItems(filterSize, mAdapter.size() - filterSize);
-        if (adapterSize == 0) mBinding.progressLayout.showProgress();
+        // 刷新时只清掉海报行，保留筛选行与「更新推荐」标题行。
+        if (adapterSize > base) mAdapter.removeItems(base, adapterSize - base);
+        if (adapterSize <= base) mBinding.progressLayout.showProgress();
         else mBinding.swipeLayout.setRefreshing(true);
     }
 
@@ -278,8 +329,9 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
             // 过滤器区域：最上一排回导航栏，其余交给默认向上。
             return position == 0 && notifyFirstRowUp();
         }
-        if (position == filterCount) {
+        if (position == firstPosterRow()) {
             // 第一排海报：过滤器打开时先回最近的过滤器行，否则回导航栏。
+            // 推荐页多了一行不可聚焦的标题，firstPosterRow() 已把它算进去。
             return filterVisible ? focusRow(filterCount - 1) : notifyFirstRowUp();
         }
         return false;
@@ -351,11 +403,15 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
     }
 
     private int firstPosterRow() {
-        int start = filterSize();
+        int start = baseSize();
         return start >= (mAdapter == null ? 0 : mAdapter.size()) ? 0 : start;
     }
 
     public void onRefresh() {
+        // 推荐页只做 UI 准备（清掉旧海报行 + 摆进度态）：homeContent() 由 HomeActivity
+        // 统一发起，结果经 Activity 作用域的共享 ViewModel 回到这里（含后建页面的补发）。
+        // 这里不能再调一次 homeContent()，否则每次刷新都会重复请求站点首页。
+        // 分类页照旧由 getVideo() 发 categoryContent()。
         getVideo();
     }
 
@@ -385,6 +441,7 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
 
     @Override
     public boolean onLoadMore(String page) {
+        if (isRecommend()) return false;
         getVideo(getTypeId(), page);
         return true;
     }

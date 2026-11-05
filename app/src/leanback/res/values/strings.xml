@@ -1,7 +1,9 @@
 <resources xmlns:xliff="http://schemas.android.com/apk/res-auto">
 
     <!-- Home -->
+    <!-- 旧「首页」胶囊文案，保留资源以免其它变体引用；新胶囊使用 home_recent。 -->
     <string name="home_vod">Home</string>
+    <string name="home_recent">Recently Watched</string>
     <string name="home_live">Live</string>
     <string name="home_search">Search</string>
     <string name="home_keep">Keep</string>

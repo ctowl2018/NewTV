@@ -25,25 +25,50 @@ public class TypeAdapter extends RecyclerView.Adapter<TypeAdapter.ViewHolder> {
         mItems = new ArrayList<>();
     }
 
-    /** 首页项：固定在类型栏最左侧，点击返回首页。 */
+    /** 「最近观看」项：固定在类型栏最左侧（原「首页」改名），点击回到最近观看。 */
     private Class home() {
         Class type = new Class();
-        type.setTypeName(ResUtil.getString(R.string.home_vod));
-        type.setTypeId("home");
+        type.setTypeName(ResUtil.getString(R.string.home_recent));
+        type.setTypeId(Class.TYPE_HOME);
+        return type;
+    }
+
+    /**
+     * 「更新推荐」项：固定在类型栏第 2 位。
+     *
+     * <p>与真实分类同排在导航里，但不是站点分类；它由 {@code RecommendFragment}
+     * 承载，数据来自 {@code homeContent()}。这里只负责生成用于胶囊显示与分页定位的 Class。
+     */
+    public static Class recommend() {
+        Class type = new Class();
+        type.setTypeName(ResUtil.getString(R.string.home_recommend));
+        type.setTypeId(Class.TYPE_RECOMMEND);
         return type;
     }
 
     /**
      * 覆盖类型列表。
      *
-     * <p>「首页」项无条件插在首位：未配置任何站源时 {@code items} 为空，
-     * 导航栏仍要保留这枚胶囊，样式与位置和有站源时保持一致。
+     * <p>前两枚固定胶囊无条件插入：未配置任何站源时 {@code items} 为空，
+     * 导航栏仍要保留「最近观看 / 更新推荐」，样式与位置和有站源时保持一致。
+     * 真实分类从第 2 位开始。
      */
     public void addAll(List<Class> items) {
         mItems.clear();
         mItems.add(home());
+        mItems.add(recommend());
         if (items != null) mItems.addAll(items);
         notifyDataSetChanged();
+    }
+
+    /** 前置固定胶囊的数量：宿主把分页下标换算成胶囊下标（或反向）时统一使用。 */
+    public int offset() {
+        int offset = 0;
+        for (Class item : mItems) {
+            if (!item.isBuiltIn()) break;
+            offset++;
+        }
+        return offset;
     }
 
     public void clear() {
@@ -62,10 +87,10 @@ public class TypeAdapter extends RecyclerView.Adapter<TypeAdapter.ViewHolder> {
         return mItems.get(position);
     }
 
-    /** 真实分类列表（不含「首页」哨兵项），供其它页面重建导航栏使用。 */
+    /** 真实分类列表（不含两枚前置固定胶囊），供分页与导航栏重建使用。 */
     public List<Class> getTypes() {
         List<Class> types = new ArrayList<>();
-        for (Class item : mItems) if (!item.isHome()) types.add(item);
+        for (Class item : mItems) if (!item.isBuiltIn()) types.add(item);
         return types;
     }
 
@@ -96,12 +121,13 @@ public class TypeAdapter extends RecyclerView.Adapter<TypeAdapter.ViewHolder> {
         holder.binding.text.setSelected(item.isSelected());
         holder.binding.text.setCompoundDrawablePadding(ResUtil.dp2px(4));
         holder.binding.text.setCompoundDrawablesWithIntrinsicBounds(0, 0, getIcon(item), 0);
+        // 「最近观看」不提供长按刷新；「更新推荐」保留（回调里刷新首页数据）。
         holder.binding.text.setListener(item.isHome() ? null : () -> mListener.onRefresh(item));
         holder.binding.getRoot().setOnClickListener(v -> mListener.onItemClick(item));
     }
 
     private int getIcon(Class item) {
-        if (item.isHome()) return 0;
+        if (item.isBuiltIn()) return 0;
         return Cache.get(item).isEmpty() ? 0 : item.getFilter() ? R.drawable.ic_vod_filter_off : R.drawable.ic_vod_filter_on;
     }
 

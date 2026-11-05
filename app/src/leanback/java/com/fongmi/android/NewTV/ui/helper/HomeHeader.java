@@ -53,6 +53,11 @@ public class HomeHeader implements TypeAdapter.OnClickListener {
     /** 各页面共享的类型列表：首页加载完成后发布。 */
     private static final List<Class> PUBLISHED = new ArrayList<>();
 
+    /** 从其它页面跳回首页时指定要落在哪一页：0=最近观看，1=更新推荐。 */
+    public static final String EXTRA_PAGE = "home_page";
+    public static final int PAGE_RECENT = 0;
+    public static final int PAGE_RECOMMEND = 1;
+
     public interface Host {
 
         void onTypeClick(Class item, int position);
@@ -111,8 +116,9 @@ public class HomeHeader implements TypeAdapter.OnClickListener {
     private void initView() {
         binding.typeNav.setHorizontalSpacing(ResUtil.dp2px(16));
         binding.typeNav.setRowHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
-        // 先摆上「首页」胶囊：未配置站源（配置加载失败或站点没有分类）时类型列表为空，
-        // 导航栏也不能是一片空白。真实分类到达后由 setTypes() 覆盖，首页项始终留在首位。
+        // 先摆上「最近观看 / 更新推荐」两枚固定胶囊：未配置站源（配置加载失败或站点
+        // 没有分类）时类型列表为空，导航栏也不能是一片空白。真实分类到达后由 setTypes()
+        // 覆盖，两枚固定项始终留在最前面。
         adapter.addAll(Collections.emptyList());
         binding.typeNav.setAdapter(adapter);
         select(0);
@@ -332,7 +338,11 @@ public class HomeHeader implements TypeAdapter.OnClickListener {
             backHome();
             return;
         }
-        int target = adapter.hasHome() ? position - 1 : position;
+        if (item.isRecommend()) {
+            openRecommend(activity);
+            return;
+        }
+        int target = position - adapter.offset();
         VodActivity.start(activity, getKey(), adapter.getTypes(), Math.max(0, target));
     }
 
@@ -356,11 +366,26 @@ public class HomeHeader implements TypeAdapter.OnClickListener {
         return home == null ? "" : home.getKey();
     }
 
-    /** 回到首页：首页自己直接结束，其余页面清栈回到已存在的首页实例。 */
+    /** 回到首页的「最近观看」页：首页自己直接结束，其余页面清栈回到已存在的首页实例。 */
     private void backHome() {
+        goHome(PAGE_RECENT);
+    }
+
+    /** 回到首页并直接落在「更新推荐」页；分类页里的这枚胶囊是跨 Activity 的快捷入口。 */
+    public static void openRecommend(Activity from) {
+        if (from instanceof HomeActivity) return;
+        Intent intent = new Intent(from, HomeActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        intent.putExtra(EXTRA_PAGE, PAGE_RECOMMEND);
+        from.startActivity(intent);
+        from.finish();
+    }
+
+    private void goHome(int page) {
         if (activity instanceof HomeActivity) return;
         Intent intent = new Intent(activity, HomeActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        intent.putExtra(EXTRA_PAGE, page);
         activity.startActivity(intent);
         activity.finish();
     }

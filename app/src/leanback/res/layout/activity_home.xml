@@ -19,9 +19,12 @@
       L2 内容层  LinearLayoutCompat（页头 + 海报列表 + 分类分页）
          · 永远绘制在 L0 / L1 之上：海报、文字、焦点放大都不会被背景或 logo 压住
 
-      L0 / L1 只服务首页顶部的留白区：它们不参与焦点、不接收点击，
-      随列表上翻按滚动距离淡出（logo 先退场，背景图走满留白带后退场），
-      由 HomeActivity.updateHeroScroll() 驱动；回到顶部再淡入。
+      L0 / L1 只作顶部装饰：它们不参与焦点、不接收点击。
+      「最近观看」板块已改为贴屏幕底部对齐（见下方 recycler），海报卡片底边与屏幕底边
+      之间固定留白 60px 物理像素；这段留白落在 recycler 内部（paddingBottom），
+      兼作焦点放大的安全区，放大后的海报始终不超出容器边界与屏幕。
+      列表不再有顶部留白带，因此背景图与 logo 常驻、不再随滚动淡出；
+      logo 的垂直中心由 HomeActivity.applyLogoPlacement() 按「导航栏底边 ↔ 板块顶边」实时居中。
     -->
     <com.fongmi.android.NewTV.ui.custom.FeatheredImageView
         android:id="@+id/homeHero"
@@ -62,8 +65,9 @@
             android:layout_height="wrap_content" />
 
         <!--
-          内容区：第 0 页是首页本体（历史 + 推荐），第 1..N 页是各分类。
-          类型栏焦点横向移动到某个分类即切换过去，与分类页保持同一套交互。
+          内容区：胶囊 0 = 最近观看（下方 progressLayout / recycler），
+          胶囊 1..N = 内嵌分页（分页 0 为「更新推荐」，其后为各分类）。
+          类型栏焦点横向移动到某个胶囊即切换过去，与分类页保持同一套交互。
         -->
         <FrameLayout
             android:id="@+id/content"
@@ -77,21 +81,39 @@
                 android:layout_height="match_parent">
 
                 <!--
-                  首页网格。列表第一项是「留白带」（HomeBandView），负责把「最近观看」的**海报顶部**
-                  压到背景图下沿之上 100px（标题仍按原有行距排在海报上方）；它是真正的列表项，
-                  会随内容一起滚动 —— 上翻时留白被带走、下面的海报立刻接上，不会在顶部留下大片静止空白。
-                  高度由 HomeActivity.applyHomeBand() 实测写入。
+                  「最近观看」网格：整块沿屏幕底部对齐，高度只由「标题行 + 一行历史海报」
+                  决定，多余空间留在上方交给背景图与片名 logo 展示。
+
+                  注意：Leanback 的 VerticalGridView 在 RelativeLayout 里以 AT_MOST 测量时
+                  会把 wrap_content 撑成父容器全高（alignParentBottom / marginBottom 随之失效），
+                  因此运行时的实际 height 由 HomeActivity.applyRecentBottomLayout() 按已布局
+                  子项的最大 bottom 实测写入；这里 wrap_content 只是首帧兜底。
+
+                  底部留白固定 60px（物理像素，与 HomeActivity.RECENT_BOTTOM_GAP_PX 一致），
+                  刻意用 px 而非 dp：这是「海报卡片底边 ↔ 屏幕底边」的绝对间距，各端一致。
+
+                  留白放在容器内部（paddingBottom）而不是 layout_marginBottom：
+                  recycler 底边贴屏幕底（margin=0），高度 = 内容高 + 60px，
+                  卡片底边自然距屏幕底 60px。选中的海报按 FocusHighlight 放大后
+                  会画进这 60px padding，仍完全落在 recycler 边界内，不会被裁切或超出屏幕。
+                  行容器 / HorizontalGridView 的 clipChildren 由 HomeActivity.disableClipping()
+                  在运行时统一关闭，放大边角不会再被切掉。
+
+                  不再使用旧的「顶部留白带」占位项：那套做法是把板块从顶部往下推，
+                  与「底部对齐」正好相反。
                 -->
                 <androidx.leanback.widget.VerticalGridView
                     android:id="@+id/recycler"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentBottom="true"
+                    android:layout_marginBottom="0px"
                     android:clipChildren="false"
                     android:clipToPadding="false"
                     android:paddingStart="24dp"
-                    android:paddingTop="3dp"
+                    android:paddingTop="0dp"
                     android:paddingEnd="24dp"
-                    android:paddingBottom="24dp"
+                    android:paddingBottom="60px"
                     tools:visibility="visible" />
 
             </com.fongmi.android.NewTV.ui.custom.ProgressLayout>

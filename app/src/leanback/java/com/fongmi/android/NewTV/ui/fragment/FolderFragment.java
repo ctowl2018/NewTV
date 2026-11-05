@@ -17,21 +17,27 @@ import com.fongmi.android.NewTV.databinding.FragmentFolderBinding;
 import com.fongmi.android.NewTV.ui.activity.VodActivity;
 import com.fongmi.android.NewTV.ui.base.BaseFragment;
 import com.fongmi.android.NewTV.ui.helper.ContentFocusHost;
+import com.fongmi.android.NewTV.ui.helper.PageFocus;
 
 import java.util.HashMap;
 import java.util.Optional;
 
-public class FolderFragment extends BaseFragment {
+public class FolderFragment extends BaseFragment implements PageFocus {
 
     private FragmentFolderBinding mBinding;
     private Class mType;
 
+    /** 供子类（如「更新推荐」页）复用同一套参数，从而继承整套分类页框架。 */
+    protected static Bundle args(String key, Class type) {
+        Bundle bundle = new Bundle();
+        bundle.putString("key", key);
+        bundle.putParcelable("type", type);
+        return bundle;
+    }
+
     public static FolderFragment newInstance(String key, Class type) {
-        Bundle args = new Bundle();
-        args.putString("key", key);
-        args.putParcelable("type", type);
         FolderFragment fragment = new FolderFragment();
-        fragment.setArguments(args);
+        fragment.setArguments(args(key, type));
         return fragment;
     }
 

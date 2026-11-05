@@ -19,8 +19,9 @@ android {
         applicationId "com.fongmi.android.NewTV"
         minSdk libs.versions.minSdk.get().toInteger()
         targetSdk libs.versions.targetSdk.get().toInteger()
-        // 版本口径（用户固化）：versionName = "NewTV UI 1.0.<x> beta"，
-        // 每次提交推送到 GitHub 前 x 与 versionCode 同步 +1（versionCode 必须递增才能覆盖安装）。
+        // 版本口径（用户固化）：versionCode 跟随上游基座 FongMi/TV（当前 586），
+        // 仅在「拉取基座代码并合并」时按基座当前 versionCode 同步调整；
+        // 其余场景一律不得自行改动。versionName 为本项目自有标识，不随提交自增，改动以用户明确要求为准。
         versionCode 586
         versionName "NewTV UI 1.0.0 beta"
         manifestPlaceholders.runtimeCatalog = providers.gradleProperty('tvRuntimeCatalog').getOrElse('https://github.com/FongMi/Release/releases/download/module/catalog.json')

@@ -13,6 +13,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.widget.FrameLayout;
+import android.widget.RelativeLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -32,7 +33,6 @@ import androidx.viewbinding.ViewBinding;
 import androidx.viewpager.widget.ViewPager;
 
 import com.fongmi.android.NewTV.App;
-import com.fongmi.android.NewTV.Product;
 import com.fongmi.android.NewTV.R;
 import com.fongmi.android.NewTV.api.TmdbApi;
 import com.fongmi.android.NewTV.api.TmdbStore;
@@ -41,12 +41,9 @@ import com.fongmi.android.NewTV.api.node.NodeRuntime;
 import com.fongmi.android.NewTV.bean.Cache;
 import com.fongmi.android.NewTV.bean.Class;
 import com.fongmi.android.NewTV.bean.History;
-import com.fongmi.android.NewTV.bean.HomeBand;
 import com.fongmi.android.NewTV.bean.Result;
 import com.fongmi.android.NewTV.bean.Site;
-import com.fongmi.android.NewTV.bean.Style;
 import com.fongmi.android.NewTV.bean.TmdbArt;
-import com.fongmi.android.NewTV.bean.Vod;
 import com.fongmi.android.NewTV.databinding.ActivityHomeBinding;
 import com.fongmi.android.NewTV.db.BackupManager;
 import com.fongmi.android.NewTV.event.CastEvent;
@@ -70,70 +67,53 @@ import com.fongmi.android.NewTV.ui.custom.FeatheredImageView;
 import com.fongmi.android.NewTV.ui.custom.HeroFade;
 import com.fongmi.android.NewTV.ui.dialog.SiteDialog;
 import com.fongmi.android.NewTV.ui.fragment.FolderFragment;
+import com.fongmi.android.NewTV.ui.fragment.RecommendFragment;
 import com.fongmi.android.NewTV.ui.helper.ContentFocusHost;
 import com.fongmi.android.NewTV.ui.helper.HomeHeader;
+import com.fongmi.android.NewTV.ui.helper.PageFocus;
 import com.fongmi.android.NewTV.ui.presenter.HeaderPresenter;
 import com.fongmi.android.NewTV.ui.presenter.HistoryPresenter;
-import com.fongmi.android.NewTV.ui.presenter.HomeBandPresenter;
-import com.fongmi.android.NewTV.ui.presenter.ProgressPresenter;
-import com.fongmi.android.NewTV.ui.presenter.VodPresenter;
 import com.fongmi.android.NewTV.utils.KeyUtil;
 import com.fongmi.android.NewTV.utils.Notify;
 import com.fongmi.android.NewTV.utils.PermissionUtil;
 import com.fongmi.android.NewTV.utils.ResUtil;
 import com.fongmi.android.NewTV.utils.Util;
 import com.github.catvod.net.OkHttp;
-import com.google.common.collect.Lists;
 
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
-import java.util.ArrayList;
 import java.util.List;
 
-public class HomeActivity extends BaseActivity implements CustomTitleView.Listener, VodPresenter.OnClickListener, HistoryPresenter.OnClickListener, HomeHeader.Host, ContentFocusHost {
+/**
+ * 主页面：顶部导航 + 「最近观看」内容区 + 内嵌分类分页。
+ *
+ * <p>导航胶囊下标与分页下标的约定（与 {@link TypeAdapter} 的两枚前置固定胶囊对应）：</p>
+ * <pre>
+ *   胶囊 0 = 最近观看（本 Activity 的 progressLayout / recycler，不占分页）
+ *   胶囊 1 = 更新推荐（分页 0，RecommendFragment）
+ *   胶囊 2.. = 真实分类（分页 1..N，FolderFragment）  → 分页下标 = 胶囊下标 − 1
+ * </pre>
+ *
+ * <p>焦点规则与 {@link VodActivity} 的分类页完全一致：胶囊 ↓ 进第一张海报、
+ * 第一排海报 ↑ 回胶囊、按返回记住海报、从其它页面回来时把选中项复位到左上角第一张
+ * （只复位位置、不抢焦点）。</p>
+ */
+public class HomeActivity extends BaseActivity implements CustomTitleView.Listener, HistoryPresenter.OnClickListener, HomeHeader.Host, ContentFocusHost {
 
     private static final String STATE_ACTION_HANDLED = "action_handled";
     /** 组合标宽度占屏宽的比例（设计稿 1920x1080 中 920x75 的裁切图）。 */
     private static final float SPLASH_LOGO_WIDTH_RATIO = 0.479f;
     private static final float SPLASH_LOGO_ASPECT = 920f / 75f;
-    /** 首页右上角背景图宽度占屏宽的比例；高度按原图比例自动换算，各尺寸屏幕视觉比例一致。 */
+    /** 右上角背景图宽度占屏宽的比例；高度按原图比自动换算，各尺寸屏幕视觉比例一致。 */
     private static final float HERO_WIDTH_RATIO = FeatheredImageView.WIDTH_RATIO;
-    /**
-     * 「最近观看」**海报顶部**（不是板块标题）与右上角背景图下边界的重合高度：100px。
-     *
-     * <p>留白带由列表的第一个占位项（{@link HomeBand}）撑起，高度 =
-     * 背景图底边 − 该重合量 − 「标题顶 → 海报顶」的实测高度差 − 网格起点，
-     * 在布局完成后写入。它是列表的一部分，所以上翻时会被一起带出屏幕，
-     * 下面的海报行立刻接上，顶部不会残留一条静止的空白。</p>
-     *
-     * <p>用物理像素而非 dp：这是「海报压住背景图多少」的实际重叠量，与屏幕密度无关
-     * （与 {@link #HERO_LOGO_OVERLAP_PX} 同一口径）。</p>
-     */
-    private static final int HERO_POSTER_OVERLAP_PX = 100;
-    /**
-     * 留白带高度暂时算不出来时（标题 / 海报行还没排出来）的逐帧重试上限。
-     *
-     * <p>留白带高度依赖「标题顶 → 海报顶」的实测值，启动早期这一行可能还没布局；
-     * 若就此放弃，列表会停在留白带高度 0 的位置，直到某次布局（用户滚动、焦点移动）
-     * 才突然补上 —— 表现出来就是「板块要靠平移才能到达目标位置」。
-     * 这里改成主动重试：页面加载完就是最终位置，与任何滚动 / 交互无关。</p>
-     */
-    private static final int BAND_RETRY_LIMIT = 12;
-    /**
-     * logo 相对留白带的淡出比例：留白带滚走 {@code 0.6 × 高度} 时 logo 已完全透明。
-     *
-     * <p>让 logo 先于海报「消失」而不是被海报从中间切一刀：片名始终完整地淡出，
-     * 不会出现半个字压在透明图上、半个字压在卡片上的割裂画面。</p>
-     */
-    private static final float LOGO_FADE_RATIO = 0.6f;
     /** 欢迎页最短展示时长：logo 出现到开始淡出至少 1 秒，避免一闪而过。 */
     private static final long SPLASH_MIN_DISPLAY = 1000L;
     /** 首页迟迟不就绪（站点异常）时的兜底时长，保证不会卡在欢迎页。 */
     private static final long SPLASH_TIMEOUT = 8000L;
-    /** 首页「首页」胶囊上连按两次返回退出：两次间隔上限。 */
+    /** 「最近观看」胶囊上连按两次返回退出：两次间隔上限。 */
     private static final long BACK_EXIT_WINDOW = 2000L;
-    /** 行内海报的横向间距（dp）：「最近观看」与其它海报行共用。 */
+    /** 行内海报的横向间距（dp）。 */
     private static final int ROW_SPACING_DP = 16;
     /**
      * 片名 logo 右边缘越过右上角背景图左边界的距离（物理像素）。
@@ -141,12 +121,17 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
      */
     private static final int HERO_LOGO_OVERLAP_PX = 300;
     /**
-     * logo 画布的逻辑尺寸（dp），与 activity_home.xml 中 homeLogo 的基准尺寸保持一致。
+     * 「最近观看」海报卡片底边到屏幕底边的留白（物理像素）。
      *
-     * <p>所有 logo 都画在同一尺寸的画布上，再由画布按 FIT_CENTER 缩放到控件里：
-     * TransitionDrawable 的固有尺寸只由画布决定，不会随素材宽高比变化，也不会
-     * 继承同一次转场里另一张 logo 的尺寸。</p>
+     * <p>留白由 recycler 的 {@code paddingBottom} 承担（XML 给首帧兜底，
+     * {@link #applyRecentBottomLayout()} 运行时按本常量重新写入），
+     * 而不是 layout_marginBottom：留白落在容器<b>内部</b>，选中放大的海报画进这段
+     * padding 里，始终不超出 recycler 的边界，也不会超出屏幕。
+     *
+     * <p>用 px 而非 dp：这是屏幕上的绝对空隙，各端保持同一物理像素值。
      */
+    private static final int RECENT_BOTTOM_GAP_PX = 60;
+    /** logo 画布的逻辑尺寸（dp），与 activity_home.xml 中 homeLogo 的基准尺寸保持一致。 */
     private static final int LOGO_CANVAS_DP_WIDTH = 306;
     private static final int LOGO_CANVAS_DP_HEIGHT = 119;
 
@@ -160,18 +145,14 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private ArrayObjectAdapter mHistoryAdapter;
     private ArrayObjectAdapter mAdapter;
     private HistoryPresenter mPresenter;
-    private HomeBandPresenter mBandPresenter;
-    /** 「区块标题顶部 → 第一张海报顶部」的实测高度差（px）：标题高度 + 标题与海报之间的行距。 */
-    private int mSectionGap;
-    /** 留白带高度重试计数：每次真正的布局由全局布局回调清零。 */
-    private int mBandRetry;
-    private VodPresenter mVodPresenter;
     private HomeHeader mHeader;
     private SiteViewModel mViewModel;
     private Intent pendingAction;
     private boolean actionReady;
     private boolean initialFocusApplied;
     private int lastTypePosition = -1;
+    /** 启动 / onNewIntent 指定的落地页；-1 表示已生效，仅生效一次，避免刷新时把用户踢回该页。 */
+    private int mInitialPage = -1;
     private Result mResult;
     /** 海报按返回时记住的那张海报，胶囊上按 ↓ 回到它。 */
     private View mPendingPoster;
@@ -182,19 +163,21 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     /** logo 的基准尺寸（XML 首帧测量值）：溢出自适应缩小后仍以此为基准，避免逐次递减。 */
     private int mLogoBaseWidth = -1;
     private int mLogoBaseHeight = -1;
-    /** 冷启动首次读取历史记录时，把初始焦点落到第一张海报；只生效一次。 */
-    private boolean mInitialHistoryFocusPending = true;
+    /** 板块高度是否已由实测写入过 LayoutParams（避免反复 setLayoutParams）。 */
+    private boolean mRecentLayoutApplied;
+    /** 贴底布局校准是否已排入下一帧：避免一次布局变化连发多个 post。 */
+    private boolean mRecentLayoutPending;
     /** 后台抓取完成后刷回当前焦点海报；字段强引用，配合 TmdbApi 内的弱引用使用。 */
     private final Runnable mTmdbRefresh = () -> {
         View focus = getCurrentFocus();
         if (findHistory(focus) != null) updateHeroFor(focus);
     };
-    /** 欢迎页状态：logo 已出现 + 首页内容就绪，两者都满足才淡出；最少展示 2 秒、最长 8 秒兜底。 */
+    /** 欢迎页状态：logo 已出现 + 首页内容就绪，两者都满足才淡出。 */
     private boolean splashShown;
     private boolean homeLoaded;
     private boolean splashDismissed;
     private long splashShownAt;
-    /** 上次在「首页」胶囊上按返回的时刻，用于连按两次退出。 */
+    /** 上次在「最近观看」胶囊上按返回的时刻，用于连按两次退出。 */
     private long mLastBackAt;
     /** 分类导航快速横移时的待切分页：去抖，避免逐个分类并发实例化/加载。 */
     private int mPendingCategory = -1;
@@ -203,10 +186,6 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         mPendingCategory = -1;
         if (target >= 0) applyCategory(target);
     };
-
-    private Site getHome() {
-        return VodConfig.get().getHome();
-    }
 
     @Override
     protected ViewBinding getBinding() {
@@ -218,6 +197,17 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         super.onNewIntent(intent);
         setIntent(intent);
         pendingAction = intent;
+        if (intent.getIntExtra(HomeHeader.EXTRA_PAGE, -1) == HomeHeader.PAGE_RECOMMEND) {
+            mInitialPage = HomeHeader.PAGE_RECOMMEND;
+            // 热启动：页面已就绪，直接落过去；冷启动由 setTypes() 在分类栏就绪后落地。
+            if (mHeader != null && mHeader.getAdapter().getItemCount() > 1) {
+                mInitialPage = -1;
+                clearPendingPoster();
+                mHeader.select(1);
+                mHeader.focusType(1);
+                showCategory(0);
+            }
+        }
         consumeAction();
     }
 
@@ -239,10 +229,11 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     @Override
     protected void initView(Bundle savedInstanceState) {
         if (savedInstanceState == null || !savedInstanceState.getBoolean(STATE_ACTION_HANDLED)) pendingAction = getIntent();
+        if (getIntent().getIntExtra(HomeHeader.EXTRA_PAGE, -1) == HomeHeader.PAGE_RECOMMEND) mInitialPage = HomeHeader.PAGE_RECOMMEND;
         mResult = Result.empty();
         mBinding.progressLayout.showProgress();
         setupHomeHero();
-        setupHomeBand();
+        setupHeroLayout();
         setupHeroFocus();
         initSplash(savedInstanceState);
         setHeader();
@@ -256,11 +247,11 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     @Override
     protected void initEvent() {
         mBinding.header.title.setListener(this);
-        // 首页内容第一排海报按上键：焦点回到当前分类胶囊（首页页即「首页」胶囊）。
+        // 「最近观看」第一排海报按上键：走与分类页相同的 ContentFocusHost 通道回到当前胶囊。
         mBinding.recycler.setOnKeyInterceptListener(event -> {
             if (!KeyUtil.isActionDown(event) || !KeyUtil.isUpKey(event)) return false;
             View focus = getCurrentFocus();
-            return focus != null && isFirstPosterRow(focus) && focusCapsule(mHeader.getSelected());
+            return focus != null && isFirstPosterRow(focus) && onFirstRowUp();
         });
         mBinding.recycler.addOnChildViewHolderSelectedListener(new OnChildViewHolderSelectedListener() {
             @Override
@@ -272,11 +263,11 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
             @Override
             public void onPageSelected(int position) {
                 if (mHeader.getSelected() != position + 1) mHeader.select(position + 1);
-                // 复位当前分页选中项到左上角第一张海报（不抢焦点）。当前分页此处已由 ViewPager 正常实例化。
+                // 与分类页一致：切页只把选中项复位到左上角第一张，不抢焦点。
                 final int index = position;
                 mBinding.pager.post(() -> {
-                    FolderFragment folder = getFolder(index);
-                    if (folder != null) folder.resetToFirstPoster();
+                    PageFocus page = getPage(index);
+                    if (page != null) page.resetToFirstPoster();
                 });
             }
         });
@@ -307,25 +298,14 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     @SuppressLint("RestrictedApi")
     private void setRecyclerView() {
         CustomSelector selector = new CustomSelector();
-        selector.addPresenter(HomeBand.class, mBandPresenter = new HomeBandPresenter());
         selector.addPresenter(Integer.class, new HeaderPresenter());
-        selector.addPresenter(String.class, new ProgressPresenter());
-        selector.addPresenter(Vod.class, new VodPresenter(this, Style.list()));
-        selector.addPresenter(ListRow.class, new CustomRowPresenter(ROW_SPACING_DP), VodPresenter.class);
+        // 历史为空时给板块补一行提示文字，仍由 HeaderPresenter 渲染，保证与标题同一套样式。
+        selector.addPresenter(String.class, new HeaderPresenter());
         mPresenter = new HistoryPresenter(this);
-        // 「最近观看」行与首页 / 分类页的其它海报行保持同一套布局：行宽不设上限，
-        // 占满整个内容区；只沿用「对齐滚动」这一条横向滚动策略，海报尺寸与间距都不变。
+        // 「最近观看」行与分类页海报行共用布局：行宽不设上限，只沿用「对齐滚动」策略。
         selector.addPresenter(ListRow.class, new CustomRowPresenter(ROW_SPACING_DP, FocusHighlight.ZOOM_FACTOR_SMALL, HorizontalGridView.FOCUS_SCROLL_ALIGNED), HistoryPresenter.class);
         mBinding.recycler.setAdapter(new ItemBridgeAdapter(mAdapter = new ArrayObjectAdapter(selector)));
-        // 行间距 16dp → 8dp：首页「区块标题 ↔ 海报」之间的空白只有这一层，收紧后标题更贴海报。
         mBinding.recycler.setVerticalSpacing(ResUtil.dp2px(8));
-        // 背景图 / logo 的淡出进度跟着列表滚动更新：内容上翻压过来时两张图已退场，不会被生硬切边。
-        mBinding.recycler.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                updateHeroScroll();
-            }
-        });
     }
 
     private void setPager() {
@@ -339,13 +319,33 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         mViewModel.getResult().observe(this, this::onResult);
     }
 
+    /** homeContent 是分类栏、推荐页内容与筛选缓存的共同数据源，只在这里发起一次请求。 */
+    private void getHomeContent() {
+        mViewModel.homeContent();
+    }
+
+    /**
+     * 刷新站点首页数据（分类导航 + 「更新推荐」海报）。
+     *
+     * <p><b>请求必须由本 Activity 发起</b>：冷启动 / 换源时分页仍是 GONE，
+     * RecommendFragment 及其子 TypeFragment 还没创建完，{@link FolderFragment#onRefresh()}
+     * 会静默空转；若把 homeContent() 委托给页面并提前 return，就会出现
+     * 「启动后导航只剩两枚固定胶囊、推荐页空白，必须手动点一次才加载」。
+     * 页面只在真正可见时负责清旧行 / 摆进度态，不再承担发起请求的职责。</p>
+     */
+    private void refreshRecommend() {
+        // 只在推荐页确实可见时才做 UI 准备：pager GONE 时不要 instantiateItem，
+        // 否则会绕过 ViewPager 提前建 Fragment（并发建页 / 状态不一致的隐患）。
+        if (mBinding.pager.getVisibility() == View.VISIBLE && mBinding.pager.getCurrentItem() == 0) {
+            PageFocus page = getPage(0);
+            if (page != null) page.onRefresh();
+        }
+        getHomeContent();
+    }
+
     private void onResult(Result result) {
-        mAdapter.remove("progress");
         mResult = result;
         setTypes();
-        addVideo(result);
-        // 导航栏至少有「首页」胶囊，初始焦点落在胶囊上；极端情况下没有胶囊才退回内容区。
-        setFocus();
         Cache.clear().put(result);
         // 首页数据已就绪：欢迎页等淡入播完后自动淡出
         onHomeLoaded();
@@ -359,19 +359,26 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         HomeHeader.publish(types);
         mHeader.setTypes(types, 0);
         if (mBinding.pager.getAdapter() != null) mBinding.pager.getAdapter().notifyDataSetChanged();
-        // 刷新数据时保留当前位置：仍在同一个分类页，不把用户踢回首页
-        if (current > 0 && current < mHeader.getAdapter().getItemCount()) mHeader.select(current);
-        else showHome();
-        // 冷启动时分类列表可能晚于内容到达，这里补一次「首页胶囊」初始焦点。
+        if (mInitialPage == HomeHeader.PAGE_RECOMMEND) {
+            // 从分类页跳回「更新推荐」：只落地一次，之后的刷新保持用户当前所在页。
+            mInitialPage = -1;
+            mHeader.select(1);
+            showCategory(0);
+        } else if (current > 0 && current < mHeader.getAdapter().getItemCount()) {
+            // 刷新数据时保留当前位置：仍在同一个分类页，不把用户踢回第一页。
+            // setTypes() 内部的 select(0) 会先触发一次 showRecent()，所以这里必须显式恢复分页。
+            mHeader.select(current);
+            showCategory(current - 1);
+        } else {
+            showRecent();
+        }
         setFocus();
     }
 
     private void setAdapter() {
         mHistoryAdapter = new ArrayObjectAdapter(mPresenter);
-        // 列表第一项：顶部留白带（占位）。高度在布局完成后由 applyHomeBand() 写入。
-        mAdapter.add(new HomeBand());
+        // 「最近观看」页只有一块内容：标题行 + 历史海报行（有记录时才插入）。
         mAdapter.add(R.string.home_history);
-        mAdapter.add(R.string.home_recommend);
     }
 
     private void checkPermission() {
@@ -415,130 +422,117 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     private void showContent() {
         mBinding.progressLayout.showContent();
-        // 先量留白带再显示内容：首帧就是最终位置，不靠之后的布局回调或滚动来「补正」。
-        mBandRetry = 0;
-        applyHomeBand();
         setFocus();
     }
 
-    // ------------------------------------------------------------ 右上角背景图与首页板块定位
+    // ------------------------------------------------------------ 右上角背景图与片名 logo
 
-    /** 首页右上角背景图：按屏宽比例定尺寸，右上角贴边；左侧/底部羽化由控件自身完成。 */
+    /** 右上角背景图：按屏宽比例定尺寸，右上角贴边；左侧/底部羽化由控件自身完成。 */
     private void setupHomeHero() {
         mBinding.homeHero.load(R.drawable.home_hero, HERO_WIDTH_RATIO);
     }
 
     /**
-     * 首页顶部留白带的定位与刷新。
-     *
-     * <p>留白带是列表的第一项（{@link HomeBand}），不是容器的 margin，也不在网格 padding 里：
-     * 只有「真正的列表项」才会随内容一起滚动。做成 padding / margin 时，网格视口的上边界仍停在原处，
-     * 海报一滚到边界就被裁掉，上面永远空着一条 —— 这正是之前「上翻后大片留白」的根因。</p>
-     *
-     * <p>定位基准是**海报顶部**而不是板块标题：留白带只补足
-     * 「海报目标位置 − 标题与海报之间的实测高度差 − 网格起点」这一截，
-     * 标题仍按列表原有的行距排在它上方，标题与海报的相对间距完全不动。</p>
-     *
-     * <p>**必须在页面加载完成前就把高度算出来**：高度一旦算出来就写在列表的第一项上，
-     * 位置由列表排版本身给出，不涉及任何运行时的位移 / 平移，也不依赖之后的滚动事件。
-     * 因此「标题 / 海报行还没排出来」时会主动逐帧重试（见 {@link #BAND_RETRY_LIMIT}），
-     * 而不是等下一次布局（用户滚动、焦点移动）才补上 —— 否则首屏会停在留白带高度为 0 的位置，
-     * 看起来就是「要靠滚动把板块带下来」。</p>
+     * 「最近观看」板块改为沿屏幕底部对齐后，顶部留白带已移除：
+     * 背景图与 logo 不再需要跟着列表滚动淡出，只在布局变化时重新给 logo 定位。
      */
-    private void setupHomeBand() {
-        // 每次真正的布局都重置重试预算：数据后到、换屏都会重新量一轮。
+    private void setupHeroLayout() {
         mBinding.getRoot().getViewTreeObserver().addOnGlobalLayoutListener(() -> {
-            mBandRetry = 0;
-            applyHomeBand();
+            scheduleRecentBottomLayout();
+            applyLogoPlacement();
         });
     }
 
-    private void applyHomeBand() {
-        if (mBinding.progressLayout.getVisibility() != View.VISIBLE) return;
-        boolean pending = true;
-        if (mBandPresenter != null && mBinding.homeHero.getHeight() > 0) {
-            int gap = measureSectionGap();
-            if (gap >= 0) {
-                pending = false;
-                mSectionGap = gap;
-                int[] hero = new int[2];
-                int[] box = new int[2];
-                mBinding.homeHero.getLocationInWindow(hero);
-                mBinding.recycler.getLocationInWindow(box);
-                // 目标：海报顶部落在「背景图底边 − 重合量」处（窗口坐标）。
-                int target = hero[1] + mBinding.homeHero.getHeight() - HERO_POSTER_OVERLAP_PX;
-                mBandPresenter.setBandHeight(target - gap - (box[1] + mBinding.recycler.getPaddingTop()));
-            }
-        }
-        // logo 的位置同样依赖运行时实测；放在提前返回之外，避免「已对齐」时漏更新。
-        applyLogoPlacement();
-        updateHeroScroll();
-        // 标题 / 海报行还没排出来（首帧、数据未到、刚被回收）：下一帧接着量。
-        // 这条重试是「初始位置」的保证：绝不能把生效时机交给用户滚动或其它交互。
-        if (pending && mBandRetry < BAND_RETRY_LIMIT) {
-            mBandRetry++;
-            mBinding.recycler.postOnAnimation(this::applyHomeBand);
-        }
-    }
-
     /**
-     * 实测「区块标题顶部 → 第一张海报顶部」的高度差：标题自身高度 + 标题与海报行之间的行距。
+     * 「最近观看」板块贴底对齐，并为选中放大预留安全区。
      *
-     * <p>两个视图是同一次布局里的兄弟节点，测的是**相对距离**，与列表滚动位置无关，
-     * 所以留白带高度不会随滚动反复变化；换字体缩放、改标题样式也会自动跟随。
-     * 历史为空时第一行是「更新推荐」，同一套口径照样成立。</p>
+     * <p><b>不能依赖 XML 的 wrap_content</b>：Leanback 的 VerticalGridView 在 RelativeLayout
+     * 里以 AT_MOST 测量时会直接取父容器全高（ADB 实测 2560x1440 设备上
+     * recycler = [0,286][2560,1440]，标题与海报排在顶部、卡片底边 788，
+     * 距屏幕底 652px），此时 alignParentBottom 与 marginBottom 一并失效。
+     * 这里按「已布局子项的最大 bottom」实测内容高度，显式写 LayoutParams.height，
+     * 再重新声明贴底规则。</p>
      *
-     * @return 高度差（px）；标题或海报行尚未布局 / 已滚出被回收时返回 -1。
+     * <p>底部留白 {@link #RECENT_BOTTOM_GAP_PX} 改由 {@code paddingBottom} 承担，
+     * {@code bottomMargin} 固定为 0：recycler 底边贴屏幕底，卡片底边距屏幕底正好 60px。
+     * 这段 padding 同时是焦点放大的安全区 —— 放大后的海报画进 padding 区，
+     * 仍完全落在 recycler 的 bounds 内，既不超出容器也不超出屏幕。</p>
+     *
+     * <p>高度 = 标题行 + 一行历史（或空态提示）+ 底部留白；历史增删后
+     * {@link #refreshRecentLayout()} 会再触发一次。参数不变时不再 setLayoutParams，
+     * 避免反复布局。</p>
+     *
+     * <p>放大余量核算：当前 {@code FocusHighlight.ZOOM_FACTOR_SMALL = 110%}，
+     * 卡片高约 400px 时单侧只溢出约 20px，远小于 60px；若日后上调放大倍率，
+     * 需同步复核这段留白是否仍够容纳溢出。</p>
      */
-    private int measureSectionGap() {
-        RecyclerView.LayoutManager manager = mBinding.recycler.getLayoutManager();
-        if (manager == null) return -1;
-        int title = getHistoryIndex() - 1;
-        View titleView = manager.findViewByPosition(title);
-        if (titleView == null) return -1;
-        for (int i = title + 1; i < mAdapter.size(); i++) {
-            if (!(mAdapter.get(i) instanceof ListRow)) continue;
-            View row = manager.findViewByPosition(i);
-            if (row == null) return -1;
-            return row.getTop() - titleView.getTop();
+    private void scheduleRecentBottomLayout() {
+        if (mRecentLayoutPending) return;
+        mRecentLayoutPending = true;
+        mBinding.recycler.post(() -> {
+            mRecentLayoutPending = false;
+            applyRecentBottomLayout();
+        });
+    }
+
+    private void applyRecentBottomLayout() {
+        // 切到分类分页时 progressLayout 被隐藏，子项坐标是陈旧的，此时不动布局参数。
+        if (mBinding.progressLayout.getVisibility() != View.VISIBLE
+                || mBinding.recycler.getVisibility() != View.VISIBLE) return;
+        // 留白统一按常量写成物理像素，避免 XML 与运行时不同步（各端一致）。
+        if (mBinding.recycler.getPaddingBottom() != RECENT_BOTTOM_GAP_PX) {
+            mBinding.recycler.setPaddingRelative(mBinding.recycler.getPaddingStart(),
+                    mBinding.recycler.getPaddingTop(), mBinding.recycler.getPaddingEnd(),
+                    RECENT_BOTTOM_GAP_PX);
         }
-        return -1;
+        int contentHeight = 0;
+        for (int i = 0; i < mBinding.recycler.getChildCount(); i++) {
+            contentHeight = Math.max(contentHeight, mBinding.recycler.getChildAt(i).getBottom());
+        }
+        if (contentHeight <= 0) return; // 子项尚未布局，等下一次全局布局回调
+        contentHeight += mBinding.recycler.getPaddingBottom();
+        // 焦点放大作用在 item view 上，行容器默认会裁掉放大出来的边角。
+        disableClipping(mBinding.recycler);
+        RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) mBinding.recycler.getLayoutParams();
+        if (mRecentLayoutApplied && params.height == contentHeight && params.bottomMargin == 0) return;
+        params.height = contentHeight;
+        params.bottomMargin = 0;
+        params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+        mRecentLayoutApplied = true;
+        mBinding.recycler.setLayoutParams(params);
     }
 
     /**
-     * 背景图与 logo 的淡出进度：跟着留白带滚出视口一起退场。
+     * 关闭「最近观看」网格子树的裁剪，让选中放大完整显示且不被切边。
      *
-     * <p>两者都排在内容之下（层级见 activity_home.xml），上翻时海报会压过来；
-     * 与其让海报从半张片名中间切过去，不如按滚动距离先淡出：logo 在留白带走完
-     * {@link #LOGO_FADE_RATIO} 时透明，背景图走满时透明，视觉上是一组自然的让位。</p>
+     * <p>Leanback 的 {@code FocusHighlight} 在 item view 上做 scaleX/scaleY，放大后的
+     * 绘制区域大于 layout bounds；HorizontalGridView / ListRowView 默认
+     * {@code clipChildren=true}，会把放大的边角直接裁掉。放大后的内容仍完全落在
+     * recycler 的 bounds 内（下方 60px padding、左右 24dp padding、上方是标题行），
+     * 因此只需关掉本网格子树的裁剪：不影响外层布局，也不影响其它页面。</p>
+     *
+     * <p>每次布局回调都跑一遍是幂等的，且能覆盖历史数据变化后新建的 item view。</p>
      */
-    private void updateHeroScroll() {
-        int band = mBandPresenter == null ? 0 : mBandPresenter.getBandHeight();
-        if (band <= 0) return;
-        View first = mBinding.recycler.getLayoutManager() == null ? null
-                : mBinding.recycler.getLayoutManager().findViewByPosition(0);
-        // 留白带被回收即代表已完全滚出视口，按最大位移处理。
-        int offset = first == null ? band : Math.max(0, mBinding.recycler.getPaddingTop() - first.getTop());
-        mBinding.homeLogo.setAlpha(Math.max(0f, Math.min(1f, 1f - offset / (band * LOGO_FADE_RATIO))));
-        mBinding.homeHero.setAlpha(Math.max(0f, Math.min(1f, 1f - offset / (float) band)));
+    private void disableClipping(View view) {
+        if (!(view instanceof ViewGroup)) return;
+        ViewGroup group = (ViewGroup) view;
+        group.setClipChildren(false);
+        group.setClipToPadding(false);
+        for (int i = 0; i < group.getChildCount(); i++) disableClipping(group.getChildAt(i));
     }
 
     /**
-     * 片名 logo 定位：垂直中心落在「导航栏底边 ↔ 首张海报顶部上方的区块标题」这段留白区的正中；
-     * 右边缘越过背景图左边界 {@link #HERO_LOGO_OVERLAP_PX} px（跨过左侧羽化带）。
+     * 片名 logo 定位：垂直中心落在「导航栏底边 ↔ 最近观看板块顶边」这段留白区正中；
+     * 右边缘越过背景图左边界 {@link #HERO_LOGO_OVERLAP_PX} px。
      *
-     * <p>若按基准尺寸摆放会顶出屏幕左边界，就保持右边缘不动、等比缩小宽高，
-     * 让左边缘正好贴住屏幕：既不裁切也不变形。基准尺寸只取第一次测量值，
-     * 避免每次布局回调都在上一次缩小结果上继续缩。</p>
-     *
-     * <p>海报顶部直接由背景图底边反推（底边 − 重合量），标题顶再由实测高度差反推，
-     * 与留白带完全同源，因此留白带高度变化时 logo 会自动跟着重新居中。</p>
+     * <p>底部对齐后板块高度会随历史记录数量变化，这里直接取 recycler 的实测顶边，
+     * 不再按「背景图底边 − 重合量」反推（那是旧顶部留白带布局的口径）。</p>
      */
     private void applyLogoPlacement() {
         View logo = mBinding.homeLogo;
         View hero = mBinding.homeHero;
         if (logo.getHeight() <= 0 || hero.getWidth() <= 0 || mBinding.header.typeNav.getHeight() <= 0
-                || mBinding.progressLayout.getHeight() <= 0) return;
+                || mBinding.progressLayout.getHeight() <= 0 || mBinding.recycler.getHeight() <= 0) return;
         if (mLogoBaseWidth <= 0) {
             mLogoBaseWidth = logo.getWidth();
             mLogoBaseHeight = logo.getHeight();
@@ -546,15 +540,13 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         int[] root = new int[2];
         int[] heroPos = new int[2];
         int[] nav = new int[2];
+        int[] box = new int[2];
         mBinding.getRoot().getLocationInWindow(root);
         hero.getLocationInWindow(heroPos);
         mBinding.header.typeNav.getLocationInWindow(nav);
-        // 垂直：留白区中点 = (导航栏底边 + 首个内容「最近观看」标题顶) / 2。
-        // 标题顶由「海报顶部目标 − 实测的标题↔海报高度差」反推，与留白带同源；
-        // 高度差还没测出来时退回按海报顶居中，至少不会把 logo 甩到屏幕外。
+        mBinding.recycler.getLocationInWindow(box);
         int navBottom = nav[1] + mBinding.header.typeNav.getHeight();
-        int posterTop = heroPos[1] + hero.getHeight() - HERO_POSTER_OVERLAP_PX;
-        int center = (navBottom + posterTop - mSectionGap) / 2;
+        int center = (navBottom + box[1]) / 2;
         // 水平：右边缘固定为「背景图左边界 + 重叠量」，左边缘由基准宽度反推。
         int right = heroPos[0] + HERO_LOGO_OVERLAP_PX - root[0];
         int width = mLogoBaseWidth;
@@ -579,25 +571,17 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     // ------------------------------------------------------------ 最近观看 ↔ TMDB 素材
 
-    /**
-     * 用全局焦点监听（而不是逐卡片 setOnFocusChangeListener）关联海报与背景图：
-     * 不覆盖 Presenter / Leanback 自己挂的焦点回调，焦点落到任意历史卡片都能生效。
-     */
+    /** 用全局焦点监听关联海报与背景图：不覆盖 Presenter / Leanback 自己挂的焦点回调。 */
     private void setupHeroFocus() {
         getWindow().getDecorView().getViewTreeObserver()
                 .addOnGlobalFocusChangeListener((oldFocus, newFocus) -> updateHeroFor(newFocus));
         TmdbApi.addOnFetched(mTmdbRefresh);
     }
 
-    /**
-     * 焦点落到最近观看海报：先按海报名补抓一次，再用同一条 TmdbArt 同时刷新背景图与 logo。
-     * 两者在同一次调用里启动 {@link HeroFade} 交叉淡入，时长完全一致，视觉上是一组转场。
-     */
     private void updateHeroFor(View focus) {
         History history = findHistory(focus);
         if (history != null) fetchTmdbForHistory(history);
         TmdbArt art = history == null ? null : TmdbStore.find(history.getVodName());
-        // 两张位图都在动画启动前备好：否则背景先淡入、logo 还在解码，视觉上会有先后差。
         String backdrop = art != null && art.hasBackdrop() ? art.getBackdrop() : null;
         Bitmap backdropBitmap = TextUtils.isEmpty(backdrop) ? null : TmdbStore.bitmap(backdrop);
         if (backdropBitmap == null) backdrop = null;
@@ -609,20 +593,12 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     }
 
     private void updateBackdrop(@Nullable String path, @Nullable Bitmap bitmap) {
-        // 同一张海报反复获得焦点时不重复触发淡入动画。
         if (TextUtils.equals(path, mHeroArt)) return;
         mHeroArt = path;
         if (path == null) mBinding.homeHero.load(R.drawable.home_hero, HERO_WIDTH_RATIO, true);
         else mBinding.homeHero.load(bitmap, HERO_WIDTH_RATIO);
     }
 
-    /**
-     * logo 与背景共用 HeroFade；没有 logo（或焦点离开历史卡片）时淡出到透明。
-     *
-     * <p>每张 logo 都包进 {@link HeroFade#logo(Bitmap, int, int)} 的固定画布层，
-     * 而不是直接塞 BitmapDrawable：后者由 TransitionDrawable 统一给 bounds 并拉伸铺满，
-     * 快速切换时会被相邻 logo 的固有尺寸带偏、拉变形。</p>
-     */
     private void updateLogo(@Nullable String path, @Nullable Bitmap bitmap) {
         if (TextUtils.equals(path, mHeroLogo)) return;
         mHeroLogo = path;
@@ -631,11 +607,6 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
                 true);
     }
 
-    /**
-     * 第二个抓取入口：播放页之外，最近观看海报获得焦点时按海报名补抓。
-     * 只受总开关控制（原「海报聚焦时抓取」子开关已移除，功能保持常开）；
-     * 内部还有缓存命中、并发去重与 miss 冷却，横移海报不会产生大量请求。
-     */
     private void fetchTmdbForHistory(History history) {
         if (!TmdbSetting.isEnabled()) return;
         String name = history.getVodName();
@@ -656,7 +627,6 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     // ------------------------------------------------------------ 启动欢迎页
 
-    /** 首帧前准备欢迎页：按屏宽等比定尺寸，logo 直接以全透明度呈现（无淡入动画）。 */
     private void initSplash(Bundle savedInstanceState) {
         // 界面重建（切分辨率 / 深色模式等）不再重播欢迎页
         if (savedInstanceState != null) {
@@ -665,19 +635,16 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
             return;
         }
         applySplashLogoSize();
-        // 取消 logo 淡入动画：直接全透明显示，但保留「首页加载完成才消失、最少展示 2 秒」的时长控制。
         mBinding.splashLogo.setAlpha(1f);
         splashShown = true;
         splashShownAt = SystemClock.elapsedRealtime();
         dismissSplashIfReady();
-        // 兜底：站点异常导致首页始终不就绪时，也保证能进入首页（最长 8 秒）
         App.post(() -> {
             homeLoaded = true;
             dismissSplashIfReady();
         }, SPLASH_TIMEOUT);
     }
 
-    /** 组合标宽度取屏宽的 47.9%（设计稿 1920 宽里 920 宽），高度按原图比例，任何分辨率都不变形。 */
     private void applySplashLogoSize() {
         int width = Math.round(getResources().getDisplayMetrics().widthPixels * SPLASH_LOGO_WIDTH_RATIO);
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(width, Math.round(width / SPLASH_LOGO_ASPECT));
@@ -685,13 +652,11 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         mBinding.splashLogo.setLayoutParams(params);
     }
 
-    /** 首页内容加载完成（成功/失败/空结果都会走到）。 */
     private void onHomeLoaded() {
         homeLoaded = true;
         dismissSplashIfReady();
     }
 
-    /** logo 已出现且首页已加载才淡出：展示时长由首页加载耗时动态决定，但至少 2 秒。 */
     private void dismissSplashIfReady() {
         if (splashDismissed || !splashShown || !homeLoaded) return;
         splashDismissed = true;
@@ -714,56 +679,34 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         super.onSaveInstanceState(outState);
     }
 
+    // ------------------------------------------------------------ 焦点（与分类页同一套契约）
+
     /**
-     * 冷启动初始焦点：「最近观看」有记录时落在列表第一张海报，否则落在「首页」胶囊。
-     *
-     * <p>分类列表与历史数据都可能晚于内容到达，因此本方法会在 {@code showContent()}、
-     * {@code setTypes()} 各调用一次，并由 {@code applyInitialHistoryFocus()} 在历史
-     * 首次就绪后补一次；只生效一次。</p>
+     * 初始焦点落在落地页对应的胶囊上，而不是海报 —— 与 VodActivity 的分类页一致：
+     * 胶囊 ↓ 才进入内容区，切页时焦点也不会自己跳进海报。
      */
     private void setFocus() {
         // 站点名称只作展示、不参与焦点，避免「海报上按上键」时被它抢走焦点
         mBinding.header.title.setSelected(true);
         if (initialFocusApplied) return;
-        if (hasHistory() && focusHistoryFirstPoster()) {
-            initialFocusApplied = true;
-        } else if (mHeader.getAdapter().getItemCount() > 0) {
-            initialFocusApplied = true;
-            mHeader.focusType(Math.max(0, mHeader.getSelected()));
-        } else if (hasPoster()) {
-            initialFocusApplied = true;
-            focusHomeFirstPoster();
-        }
+        if (mHeader.getAdapter().getItemCount() == 0) return;
+        initialFocusApplied = true;
+        mHeader.focusType(mInitialPage == HomeHeader.PAGE_RECOMMEND ? 1 : 0);
     }
 
-    /** 「最近观看」是否已经插入了非空的 ListRow。 */
-    private boolean hasHistory() {
-        if (mAdapter == null || mHistoryAdapter == null || mHistoryAdapter.size() == 0) return false;
-        int row = getHistoryIndex();
-        return row > 0 && row < mAdapter.size() && mAdapter.get(row) instanceof ListRow;
+    /** 第一张历史海报所在行；没有历史记录时返回 -1。 */
+    private int firstRecentPosterRow() {
+        if (mAdapter == null) return -1;
+        for (int i = 0; i < mAdapter.size(); i++) if (mAdapter.get(i) instanceof ListRow) return i;
+        return -1;
     }
 
-    /**
-     * 冷启动首次读到历史记录：非空就把初始焦点落到第一张海报。
-     * 用 post 等一帧，确保晚于同步的 setFocus（胶囊）执行，且 adapter 行已经提交。
-     */
-    private void applyInitialHistoryFocus(List<History> items) {
-        if (!mInitialHistoryFocusPending) return;
-        mInitialHistoryFocusPending = false;
-        if (items.isEmpty()) return;
-        mBinding.recycler.post(() -> {
-            if (isFinishing() || isDestroyed() || !hasHistory()) return;
-            if (focusHistoryFirstPoster()) initialFocusApplied = true;
-        });
-    }
-
-    /** 精确落到「最近观看」行的第一张海报（不是推荐网格的第一张）。 */
-    private boolean focusHistoryFirstPoster() {
-        int row = getHistoryIndex();
-        if (row <= 0 || row >= mAdapter.size() || !(mAdapter.get(row) instanceof ListRow)) return false;
+    /** 胶囊 ↓：焦点精确落到「最近观看」第一张海报（含行内第 0 个）。 */
+    private boolean focusRecentFirstPoster() {
+        int row = firstRecentPosterRow();
+        if (row < 0) return false;
         mBinding.recycler.setSelectedPositionWithSub(row, 0);
         mBinding.recycler.requestFocus();
-        // 行内网格可能还没布局出来：下一帧再把焦点精确交给第 0 张海报。
         mBinding.recycler.post(() -> {
             if (isFinishing() || isDestroyed()) return;
             RecyclerView.ViewHolder holder = mBinding.recycler.findViewHolderForAdapterPosition(row);
@@ -773,6 +716,25 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
             grid.requestFocus();
         });
         return true;
+    }
+
+    /**
+     * 从其它分类页回到「最近观看」时初始化焦点位置：复位到左上角第一张，但不抢焦点。
+     *
+     * <p>对应分类页 {@code onPageSelected → resetToFirstPoster()}；焦点保持在导航栏，
+     * 用户按 ↓ 才进入，避免「切回首页时画面突然跳到某张海报」。</p>
+     */
+    private void resetRecentPoster() {
+        int row = firstRecentPosterRow();
+        if (row < 0) return;
+        mBinding.recycler.post(() -> {
+            if (isFinishing() || isDestroyed()) return;
+            mBinding.recycler.scrollToPosition(row);
+            mBinding.recycler.setSelectedPositionWithSub(row, 0);
+            RecyclerView.ViewHolder holder = mBinding.recycler.findViewHolderForAdapterPosition(row);
+            HorizontalGridView grid = holder == null ? null : findHorizontalGrid(holder.itemView);
+            if (grid != null) grid.setSelectedPosition(0);
+        });
     }
 
     private HorizontalGridView findHorizontalGrid(View view) {
@@ -786,41 +748,69 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         return null;
     }
 
-    /** 首页内容里是否已经有海报行（只看 ListRow，跳过历史/推荐文字标题行）。 */
-    private boolean hasPoster() {
-        if (mAdapter == null) return false;
-        for (int i = 0; i < mAdapter.size(); i++) if (mAdapter.get(i) instanceof ListRow) return true;
+    private boolean isContentFocused() {
+        View focus = getCurrentFocus();
+        if (focus == null) return false;
+        return isDescendant(focus, mBinding.recycler) || isDescendant(focus, mBinding.pager);
+    }
+
+    /** 当前是否处于「最近观看」页（而非内嵌分类分页）。 */
+    private boolean isHomePage() {
+        return mBinding.pager.getVisibility() != View.VISIBLE;
+    }
+
+    private boolean isTypeBarFocused() {
+        View focus = getCurrentFocus();
+        if (focus == null) return false;
+        if (focus == mBinding.header.typeNav) return true;
+        return mBinding.header.typeNav.findContainingItemView(focus) != null;
+    }
+
+    private boolean isDescendant(View child, View parent) {
+        View view = child;
+        while (view != null) {
+            if (view == parent) return true;
+            view = view.getParent() instanceof View ? (View) view.getParent() : null;
+        }
         return false;
     }
 
-    private void getVideo() {
-        mResult = Result.empty();
-        int index = getRecommendIndex();
-        boolean gone = mAdapter.indexOf("progress") == -1;
-        boolean hasItem = gone && mAdapter.size() > index;
-        if (hasItem) mAdapter.removeItems(index, mAdapter.size() - index);
-        if (gone) mAdapter.add("progress");
-        mViewModel.homeContent();
+    /** 焦点是否停在内容区的第一排海报（上方没有任何海报行）。 */
+    private boolean isFirstPosterRow(View focused) {
+        View row = findRow(focused);
+        if (row == null) return false;
+        int position = mBinding.recycler.getChildAdapterPosition(row);
+        if (position == RecyclerView.NO_POSITION || position >= mAdapter.size()) return false;
+        if (!(mAdapter.get(position) instanceof ListRow)) return false;
+        for (int i = 0; i < position; i++) if (mAdapter.get(i) instanceof ListRow) return false;
+        return true;
     }
 
-    private void addVideo(Result result) {
-        Style style = result.getStyle(getHome().getStyle());
-        if (style.isList()) mAdapter.addAll(mAdapter.size(), result.getList());
-        else addGrid(result.getList(), style);
+    private View findRow(View focused) {
+        View child = focused;
+        while (child != null && child.getParent() != mBinding.recycler) {
+            if (!(child.getParent() instanceof View)) return null;
+            child = (View) child.getParent();
+        }
+        return child;
     }
 
-    private void addGrid(List<Vod> items, Style style) {
-        List<ListRow> rows = new ArrayList<>();
-        if (mVodPresenter == null || !mVodPresenter.matches(style)) mVodPresenter = new VodPresenter(this, style);
-        for (List<Vod> part : Lists.partition(items, Product.getColumn(style))) rows.add(createVideoRow(part));
-        mAdapter.addAll(mAdapter.size(), rows);
+    private boolean focusCapsule(int position) {
+        return mHeader != null && mHeader.focusType(position);
     }
 
-    private ListRow createVideoRow(List<Vod> items) {
-        ArrayObjectAdapter adapter = new ArrayObjectAdapter(mVodPresenter);
-        adapter.addAll(0, items);
-        return new ListRow(adapter);
+    private boolean restorePendingPoster() {
+        if (mPendingPoster == null) return false;
+        View target = mPendingPoster;
+        mPendingPoster = null;
+        return target.isAttachedToWindow() && target.requestFocus();
     }
+
+    private void clearPendingPoster() {
+        mPendingPoster = null;
+    }
+
+    // ------------------------------------------------------------ 最近观看数据
 
     private void getHistory() {
         getHistory(false);
@@ -828,15 +818,54 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     private void getHistory(boolean renew) {
         List<History> items = History.get();
-        int historyIndex = getHistoryIndex();
-        int recommendIndex = getRecommendIndex();
-        boolean exist = recommendIndex - historyIndex == 2;
-        if (renew) mHistoryAdapter = new ArrayObjectAdapter(mPresenter = new HistoryPresenter(this));
-        if ((items.isEmpty() && exist) || (renew && exist)) mAdapter.removeItems(historyIndex, 1);
-        if ((!items.isEmpty() && !exist) || (renew && exist)) mAdapter.add(historyIndex, new ListRow(mHistoryAdapter));
-        mHistoryAdapter.setItems(items, new BaseDiffCallback<History>());
-        // 冷启动：历史首次就绪且非空 → 初始焦点落在第一张海报（同时触发背景图 / logo 关联）。
-        applyInitialHistoryFocus(items);
+        if (renew) {
+            mHistoryAdapter = new ArrayObjectAdapter(mPresenter = new HistoryPresenter(this));
+            if (hasHistoryRow()) mAdapter.removeItems(getHistoryIndex(), 1);
+        }
+        boolean exist = hasHistoryRow();
+        if (items.isEmpty()) {
+            if (exist) mAdapter.removeItems(getHistoryIndex(), 1);
+            showEmptyHint();
+            exist = false;
+        } else {
+            if (hasEmptyHint()) mAdapter.removeItems(getHistoryIndex(), 1);
+            if (!exist) {
+                mAdapter.add(getHistoryIndex(), new ListRow(mHistoryAdapter));
+                exist = true;
+            }
+        }
+        ArrayObjectAdapter target = exist
+                ? (ArrayObjectAdapter) ((ListRow) mAdapter.get(getHistoryIndex())).getAdapter()
+                : mHistoryAdapter;
+        target.setItems(items, new BaseDiffCallback<History>());
+        refreshRecentLayout();
+    }
+
+    /**
+     * 行数 / 行高变化时必须让网格重新测量并重算板块高度，
+     * 否则 Leanback 的 BaseGridView 会沿用旧高度，板块位置就不贴底了。
+     */
+    private void refreshRecentLayout() {
+        mBinding.recycler.requestLayout();
+        // 板块高度变了，logo 的居中基准与贴底布局都要跟着重算。
+        mBinding.recycler.post(this::applyLogoPlacement);
+        scheduleRecentBottomLayout();
+    }
+
+    private boolean hasHistoryRow() {
+        int row = getHistoryIndex();
+        return row > 0 && row < mAdapter.size() && mAdapter.get(row) instanceof ListRow;
+    }
+
+    private boolean hasEmptyHint() {
+        int row = getHistoryIndex();
+        return row > 0 && row < mAdapter.size() && mAdapter.get(row) instanceof String;
+    }
+
+    /** 最近观看为空时保留一行提示，避免整页只剩一个标题显得像没加载出来。 */
+    private void showEmptyHint() {
+        if (hasEmptyHint()) return;
+        mAdapter.add(getHistoryIndex(), ResUtil.getString(R.string.error_empty));
     }
 
     private void setHistoryDelete(boolean delete) {
@@ -845,19 +874,19 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     }
 
     private void clearHistory() {
-        mAdapter.removeItems(getHistoryIndex(), 1);
+        if (hasHistoryRow()) mAdapter.removeItems(getHistoryIndex(), 1);
         History.clear(VodConfig.getCid());
         mPresenter.setDelete(false);
         mHistoryAdapter.clear();
+        showEmptyHint();
+        refreshRecentLayout();
     }
 
     private int getHistoryIndex() {
         return mAdapter.indexOf(R.string.home_history) + 1;
     }
 
-    private int getRecommendIndex() {
-        return mAdapter.indexOf(R.string.home_recommend) + 1;
-    }
+    // ------------------------------------------------------------ 事件
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onConfigEvent(ConfigEvent event) {
@@ -871,14 +900,14 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     public void onRefreshEvent(RefreshEvent event) {
         switch (event.getType()) {
             case HOME:
-                getVideo();
+                refreshRecommend();
                 mHeader.setTitle();
                 break;
             case HISTORY:
                 getHistory();
                 break;
             case SIZE:
-                getVideo();
+                refreshRecommend();
                 getHistory(true);
                 break;
         }
@@ -916,19 +945,20 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         };
     }
 
-    /** 首页类型栏：焦点横向移动到某个分类即切换内容，无需确认键。 */
+    // ------------------------------------------------------------ 顶部导航 Host
+
+    /** 导航即切页：胶囊 0 = 最近观看，胶囊 n(≥1) = 分页 n−1。 */
     @Override
     public void onTypeSelected(Class item, int position) {
         boolean changed = position != lastTypePosition;
         lastTypePosition = position;
         if (position <= 0 || item == null || item.isHome()) {
             if (changed) clearPendingPoster();
-            showHome();
+            showRecent();
             return;
         }
         if (changed) clearPendingPoster();
-        // 去抖：长按左右快速移动时只对最终停留的分类切换分页，
-        // 避免逐个分类 showCategory + 手动实例化非当前页，导致多个分类页并发加载而崩溃。
+        // 去抖：长按左右快速移动时只对最终停留的分类切换分页，避免并发加载多分页而崩溃。
         mPendingCategory = position - 1;
         mBinding.pager.removeCallbacks(mCategoryTask);
         mBinding.pager.postDelayed(mCategoryTask, 100);
@@ -938,114 +968,52 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         if (isFinishing() || isDestroyed()) return;
         if (mBinding.pager.getAdapter() == null) return;
         if (index < 0 || index >= mBinding.pager.getAdapter().getCount()) return;
-        // 只切换当前分页；海报复位交给 onPageSelected（此时分页已由 ViewPager 正常实例化）。
         showCategory(index);
     }
 
-    /** 胶囊 ↓：优先回到返回前记住的那张海报，否则进入当前分类第一张海报。 */
+    /** 胶囊 ↓：优先回到返回前记住的那张海报，否则进入当前页第一张海报。 */
     @Override
     public boolean onTypeDown(int position) {
         if (restorePendingPoster()) return true;
-        if (position <= 0) return focusHomeFirstPoster();
-        FolderFragment folder = getFolder(position - 1);
-        return folder != null && folder.focusFirstPoster();
+        if (position <= 0) return focusRecentFirstPoster();
+        int index = position - 1;
+        // 导航切换有 100ms 去抖：紧跟着按 ↓ 时分页可能还没落地，这里先落地再等一帧，
+        // 避免 instantiateItem 去建一个非当前页的 Fragment（快速横移时并发实例化会崩）。
+        if (mBinding.pager.getCurrentItem() != index) {
+            showCategory(index);
+            mBinding.pager.post(() -> {
+                PageFocus target = getPage(index);
+                if (target != null) target.focusFirstPoster();
+            });
+            return true;
+        }
+        PageFocus page = getPage(index);
+        return page != null && page.focusFirstPoster();
     }
 
-    /** 当前页面实际对应的胶囊：首页=「首页」项，分类页=当前分页+1。 */
+    /** 当前页面实际对应的胶囊：最近观看=0，其余=分页下标+1。 */
     @Override
     public int getTypePosition() {
         return mHeader == null ? 0 : Math.max(0, mHeader.getSelected());
     }
 
-    /** 分类内第一排海报按上键：焦点回当前分类胶囊。 */
+    /** 内容区第一排海报按上键：焦点回当前胶囊。 */
     @Override
     public boolean onFirstRowUp() {
         return focusCapsule(mHeader.getSelected());
     }
 
-    private boolean focusCapsule(int position) {
-        return mHeader != null && mHeader.focusType(position);
-    }
-
-    private boolean restorePendingPoster() {
-        if (mPendingPoster == null) return false;
-        View target = mPendingPoster;
-        mPendingPoster = null;
-        return target.isAttachedToWindow() && target.requestFocus();
-    }
-
-    private void clearPendingPoster() {
-        mPendingPoster = null;
-    }
-
-    /** 首页内容：进入第一排海报（跳过历史/推荐文字标题行）。 */
-    private boolean focusHomeFirstPoster() {
-        if (mAdapter == null) return false;
-        for (int i = 0; i < mAdapter.size(); i++) {
-            if (mAdapter.get(i) instanceof ListRow) {
-                mBinding.recycler.setSelectedPositionWithSub(i, 0);
-                return mBinding.recycler.requestFocus();
-            }
-        }
-        return false;
-    }
-
-    private boolean isContentFocused() {
-        View focus = getCurrentFocus();
-        if (focus == null) return false;
-        return isDescendant(focus, mBinding.recycler) || isDescendant(focus, mBinding.pager);
-    }
-
-    /** 当前是否处于首页（而非分类分页）：首页时分类分页隐藏。 */
-    private boolean isHomePage() {
-        return mBinding.pager.getVisibility() != View.VISIBLE;
-    }
-
-    private boolean isTypeBarFocused() {
-        View focus = getCurrentFocus();
-        if (focus == null) return false;
-        if (focus == mBinding.header.typeNav) return true;
-        return mBinding.header.typeNav.findContainingItemView(focus) != null;
-    }
-
-    private boolean isDescendant(View child, View parent) {
-        View view = child;
-        while (view != null) {
-            if (view == parent) return true;
-            view = view.getParent() instanceof View ? (View) view.getParent() : null;
-        }
-        return false;
-    }
-
-    /** 焦点是否停在内容区的第一排海报（上方没有任何海报行）。 */
-    private boolean isFirstPosterRow(View focused) {
-        View row = findRow(focused);
-        if (row == null) return false;
-        int position = mBinding.recycler.getChildAdapterPosition(row);
-        if (position == RecyclerView.NO_POSITION || position >= mAdapter.size()) return false;
-        if (!(mAdapter.get(position) instanceof ListRow)) return false;
-        for (int i = 0; i < position; i++) {
-            if (mAdapter.get(i) instanceof ListRow) return false;
-        }
-        return true;
-    }
-
-    private View findRow(View focused) {
-        View child = focused;
-        while (child != null && child.getParent() != mBinding.recycler) {
-            if (!(child.getParent() instanceof View)) return null;
-            child = (View) child.getParent();
-        }
-        return child;
-    }
-
     @Override
     public void onTypeClick(Class item, int position) {
         if (position <= 0 || item == null || item.isHome()) {
-            showHome();
+            showRecent();
             return;
         }
-        // 焦点已经停在该分类上：确认键用于打开/收起二级分级筛选
+        // 「更新推荐」没有二级筛选：确认键按刷新处理。
+        if (item.isRecommend()) {
+            refreshRecommend();
+            return;
+        }
         if (mHeader.getSelected() != position) {
             showCategory(position - 1);
             return;
@@ -1053,16 +1021,22 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         toggleFilter(item, position);
     }
 
-    private FolderFragment getFolder(int pagerIndex) {
+    /** 取当前分页（统一按 PageFocus 契约，推荐页与分类页无差别）。 */
+    private PageFocus getPage(int pagerIndex) {
         if (mBinding.pager.getAdapter() == null) return null;
         if (pagerIndex < 0 || pagerIndex >= mBinding.pager.getAdapter().getCount()) return null;
         try {
             Object fragment = mBinding.pager.getAdapter().instantiateItem(mBinding.pager, pagerIndex);
-            return fragment instanceof FolderFragment ? (FolderFragment) fragment : null;
+            return fragment instanceof PageFocus ? (PageFocus) fragment : null;
         } catch (Exception e) {
             // 快速滑动导致适配器状态瞬时不一致时，放弃本次访问，避免进程崩溃。
             return null;
         }
+    }
+
+    private FolderFragment getFolder(int pagerIndex) {
+        PageFocus page = getPage(pagerIndex);
+        return page instanceof FolderFragment ? (FolderFragment) page : null;
     }
 
     private void toggleFilter(Class item, int adapterPosition) {
@@ -1074,16 +1048,16 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         mHeader.getAdapter().notifyItemRangeChanged(adapterPosition, 1);
     }
 
-    /** 当前分类是否展开了二级筛选。 */
+    /** 当前分类是否展开了二级筛选（两枚固定胶囊不参与）。 */
     private boolean isFilterVisible() {
         int position = mHeader.getSelected();
-        if (position <= 0 || position >= mHeader.getAdapter().getItemCount()) return false;
+        if (position <= 1 || position >= mHeader.getAdapter().getItemCount()) return false;
         return mHeader.getAdapter().get(position).getFilter();
     }
 
     private void closeFilter() {
         int position = mHeader.getSelected();
-        if (position <= 0 || position >= mHeader.getAdapter().getItemCount()) return;
+        if (position <= 1 || position >= mHeader.getAdapter().getItemCount()) return;
         Class item = mHeader.getAdapter().get(position);
         if (!item.getFilter()) return;
         toggleFilter(item, position);
@@ -1092,45 +1066,45 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     @Override
     public void onTypeRefresh(Class item) {
         if (item.isHome()) {
-            getVideo();
+            getHistory();
             return;
         }
-        int position = mHeader.getAdapter().indexOf(item);
-        if (position <= 0 || mBinding.pager.getAdapter() == null) return;
-        Object fragment = mBinding.pager.getAdapter().instantiateItem(mBinding.pager, position - 1);
-        if (fragment instanceof FolderFragment) ((FolderFragment) fragment).onRefresh();
+        if (item.isRecommend()) {
+            refreshRecommend();
+            return;
+        }
+        PageFocus page = getPage(mBinding.pager.getCurrentItem());
+        if (page != null) page.onRefresh();
     }
 
-    private void showHome() {
+    /** 「最近观看」页：从其它分页回来时把选中项复位到第一张（不抢焦点）。 */
+    private void showRecent() {
+        boolean returning = mBinding.pager.getVisibility() == View.VISIBLE;
         mBinding.pager.setVisibility(View.GONE);
-        // 兜底：内容态下回首页必须保证首页网格可见，避免被分页里的滚动逻辑误置 GONE 后一片空白。
+        // 兜底：内容态下回本页必须保证网格可见，避免被分页里的滚动逻辑误置 GONE 后一片空白。
         if (mBinding.progressLayout.isContent()) mBinding.recycler.setVisibility(View.VISIBLE);
         mBinding.progressLayout.setVisibility(View.VISIBLE);
-        // 回到首页时按当前滚动位置重新对齐背景图 / logo 的透明度（分类页期间进度不会更新）。
-        updateHeroScroll();
+        if (returning) resetRecentPoster();
     }
 
     private void showCategory(int index) {
         if (mBinding.pager.getAdapter() == null) return;
         if (index < 0 || index >= mBinding.pager.getAdapter().getCount()) return;
+        boolean alreadyShown = mBinding.pager.getVisibility() == View.VISIBLE && mBinding.pager.getCurrentItem() == index;
         mBinding.progressLayout.setVisibility(View.GONE);
         mBinding.pager.setVisibility(View.VISIBLE);
         if (mBinding.pager.getCurrentItem() != index) mBinding.pager.setCurrentItem(index);
+        // 已经停在该页时 onPageSelected 不会触发，这里本该补一次复位；但导航去抖任务可能在
+        // 「↓ 刚把焦点送进海报」之后才重复到达，重复复位会把刚落好的焦点又拨回第一张，故跳过。
+        if (alreadyShown) return;
+        final int page = index;
+        mBinding.pager.post(() -> {
+            PageFocus target = getPage(page);
+            if (target != null) target.resetToFirstPoster();
+        });
     }
 
-    @Override
-    public void onItemClick(Vod item) {
-        if (item.isAction()) mViewModel.action(getHome().getKey(), item.getAction());
-        else if (getHome().isIndex()) CollectActivity.start(this, item.getName());
-        else VideoActivity.start(this, getHome().getKey(), item.getId(), item.getName(), item.getPic());
-    }
-
-    @Override
-    public boolean onLongClick(Vod item) {
-        if (item.isAction()) return false;
-        CollectActivity.start(this, item.getName());
-        return true;
-    }
+    // ------------------------------------------------------------ 最近观看交互
 
     @Override
     public void onItemClick(History item) {
@@ -1141,8 +1115,10 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     public void onItemDelete(History item) {
         mHistoryAdapter.remove(item.delete());
         if (mHistoryAdapter.size() > 0) return;
-        mAdapter.removeItems(getHistoryIndex(), 1);
+        if (hasHistoryRow()) mAdapter.removeItems(getHistoryIndex(), 1);
         mPresenter.setDelete(false);
+        showEmptyHint();
+        refreshRecentLayout();
     }
 
     @Override
@@ -1159,7 +1135,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     @Override
     public void onRefresh() {
-        getVideo();
+        refreshRecommend();
     }
 
     @Override
@@ -1194,7 +1170,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         } else if (isFilterVisible()) {
             closeFilter();
         } else if (isContentFocused()) {
-            // 海报返回：焦点收回当前分类胶囊，并记住这张海报；再按 ↓ 可回到它。
+            // 海报返回：焦点收回当前胶囊，并记住这张海报；再按 ↓ 可回到它。
             View poster = getCurrentFocus();
             focusCapsule(mHeader.getSelected());
             mPendingPoster = poster;
@@ -1202,12 +1178,12 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
             // 焦点在品牌行（logo / 搜索 / 收藏 / 连接 / 设置）：先回导航栏。
             focusCapsule(mHeader.getSelected());
         } else if (mBinding.pager.getVisibility() == View.VISIBLE) {
-            // 分类胶囊返回：回到「首页」。
+            // 分类 / 推荐胶囊返回：回到「最近观看」。
             clearPendingPoster();
             mHeader.select(0);
-            showHome();
+            showRecent();
         } else if (isHomePage() && mHeader.getSelected() == 0 && isTypeBarFocused()) {
-            // 首页页且焦点停在「首页」胶囊：连按两次返回退出应用，先提示、2 秒内再按一次退出
+            // 最近观看胶囊：连按两次返回退出应用，先提示、2 秒内再按一次退出
             long now = SystemClock.elapsedRealtime();
             if (now - mLastBackAt <= BACK_EXIT_WINDOW) {
                 finish();
@@ -1250,14 +1226,18 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         @NonNull
         @Override
         public Fragment getItem(int position) {
+            String key = VodConfig.get().getHome().getKey();
+            // 分页 0 是拆出来的「更新推荐」独立页，它继承 FolderFragment 的整套分类页框架。
+            if (position == 0) return RecommendFragment.newInstance(key);
             List<Class> types = mHeader.getAdapter().getTypes();
-            int index = Math.max(0, Math.min(position, types.size() - 1));
-            return FolderFragment.newInstance(VodConfig.get().getHome().getKey(), types.get(index));
+            if (types.isEmpty()) return RecommendFragment.newInstance(key);
+            int index = Math.max(0, Math.min(position - 1, types.size() - 1));
+            return FolderFragment.newInstance(key, types.get(index));
         }
 
         @Override
         public int getCount() {
-            return mHeader.getAdapter().getTypes().size();
+            return mHeader.getAdapter().getTypes().size() + 1;
         }
 
         @Override

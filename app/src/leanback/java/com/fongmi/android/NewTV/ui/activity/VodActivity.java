@@ -97,12 +97,16 @@ public class VodActivity extends BaseActivity implements HomeHeader.Host, Conten
         return Math.max(0, Math.min(position, getResult().getTypes().size() - 1));
     }
 
+    /**
+     * 类型栏前置固定胶囊（最近观看 / 更新推荐）不占分页。
+     * 偏移由 TypeAdapter 统一给出，避免两个页面各写一份常量导致错位。
+     */
     private int toAdapterPosition(int pagerPosition) {
-        return pagerPosition + (mAdapter.hasHome() ? 1 : 0);
+        return pagerPosition + mAdapter.offset();
     }
 
     private int toPagerPosition(int adapterPosition) {
-        return adapterPosition - (mAdapter.hasHome() ? 1 : 0);
+        return adapterPosition - mAdapter.offset();
     }
 
     private Class getType() {
@@ -184,7 +188,7 @@ public class VodActivity extends BaseActivity implements HomeHeader.Host, Conten
 
     private void setTypes() {
         List<Class> types = getResult().getTypes();
-        // 先灌入类型（addAll 会在首位插入「首页」项），再按分页位置选中，避免 home 项导致错位。
+        // 先灌入类型（addAll 会在首位插入两枚固定胶囊），再按分页位置选中，避免错位。
         mHeader.setTypes(types, 0);
         mHeader.select(toAdapterPosition(getStartPosition()));
         HomeHeader.publish(types);
@@ -216,7 +220,7 @@ public class VodActivity extends BaseActivity implements HomeHeader.Host, Conten
         mOldView.setSelected(true);
         // 胶囊已移到别的分类：上一页记住的海报立即作废，避免 ↓ 回到旧页。
         if (position >= 0 && position < mAdapter.getItemCount()
-                && !mAdapter.get(position).isHome()
+                && !mAdapter.get(position).isBuiltIn()
                 && toPagerPosition(position) != mBinding.pager.getCurrentItem()) {
             mPendingPoster = null;
         }
@@ -229,8 +233,8 @@ public class VodActivity extends BaseActivity implements HomeHeader.Host, Conten
     private void switchCategory(int position) {
         if (isFinishing() || isDestroyed()) return;
         if (position < 0 || position >= mAdapter.getItemCount()) return;
-        // 选中的是首页项：保持当前分页不动，按确认键时再返回首页。
-        if (mAdapter.get(position).isHome()) return;
+        // 两枚固定胶囊都是回首页的快捷入口：保持当前分页不动，按确认键时才跳过去。
+        if (mAdapter.get(position).isBuiltIn()) return;
         if (mBinding.pager.getAdapter() == null) return;
         int pager = toPagerPosition(position);
         if (pager < 0 || pager >= mBinding.pager.getAdapter().getCount()) return;
@@ -271,9 +275,14 @@ public class VodActivity extends BaseActivity implements HomeHeader.Host, Conten
 
     @Override
     public void onTypeClick(Class item, int position) {
-        // 首页项：返回首页
+        // 「最近观看」：返回首页的第一页
         if (item.isHome()) {
             finish();
+            return;
+        }
+        // 「更新推荐」：回首页并直接落在该页（该页由 HomeActivity 承载）
+        if (item.isRecommend()) {
+            HomeHeader.openRecommend(this);
             return;
         }
         updateFilter(item, Math.max(0, toPagerPosition(position)));
@@ -283,6 +292,10 @@ public class VodActivity extends BaseActivity implements HomeHeader.Host, Conten
     public void onTypeRefresh(Class item) {
         if (item.isHome()) {
             finish();
+            return;
+        }
+        if (item.isRecommend()) {
+            HomeHeader.openRecommend(this);
             return;
         }
         getFragment().onRefresh();
@@ -391,7 +404,7 @@ public class VodActivity extends BaseActivity implements HomeHeader.Host, Conten
 
         @Override
         public int getCount() {
-            return Math.max(0, mAdapter.getItemCount() - (mAdapter.hasHome() ? 1 : 0));
+            return Math.max(0, mAdapter.getItemCount() - mAdapter.offset());
         }
 
         @Override
