@@ -36,6 +36,14 @@ import androidx.appcompat.widget.AppCompatImageView;
  */
 public class FeatheredImageView extends AppCompatImageView {
 
+    /**
+     * 背景图宽度占屏宽的比例。
+     *
+     * <p>首页 homeHero 与播放详情页 videoHero 共用这一个值，保证两处尺寸口径永远一致；
+     * 高度不写死，由各页调用 {@link #load(Bitmap, float)} 时按原图宽高比换算。</p>
+     */
+    public static final float WIDTH_RATIO = 0.744f;
+
     /** 左侧羽化宽度占图片宽度的比例。 */
     private static final float LEFT_FADE_RATIO = 0.22f;
     /** 底部羽化高度占图片高度的比例。 */

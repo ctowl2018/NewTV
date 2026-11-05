@@ -53,16 +53,6 @@ public class HistoryPresenter extends Presenter {
         height = (int) (width / 0.75f);
     }
 
-    /**
-     * 行内容宽度：4.5 个海报 + 4 段横向间距。
-     *
-     * <p>只收窄右边 —— 行网格仍从原来那条左边线起排，第 5 张海报露出半张，
-     * 提示右侧还有内容；页面其它元素的位置不受影响。
-     */
-    public int getRowWidth(int spacing) {
-        return Math.round(4.5f * width + 4 * spacing);
-    }
-
     public boolean isDelete() {
         return delete;
     }

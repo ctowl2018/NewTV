@@ -66,6 +66,7 @@ import com.fongmi.android.NewTV.ui.base.BaseActivity;
 import com.fongmi.android.NewTV.ui.custom.CustomRowPresenter;
 import com.fongmi.android.NewTV.ui.custom.CustomSelector;
 import com.fongmi.android.NewTV.ui.custom.CustomTitleView;
+import com.fongmi.android.NewTV.ui.custom.FeatheredImageView;
 import com.fongmi.android.NewTV.ui.custom.HeroFade;
 import com.fongmi.android.NewTV.ui.dialog.SiteDialog;
 import com.fongmi.android.NewTV.ui.fragment.FolderFragment;
@@ -97,7 +98,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private static final float SPLASH_LOGO_WIDTH_RATIO = 0.479f;
     private static final float SPLASH_LOGO_ASPECT = 920f / 75f;
     /** 首页右上角背景图宽度占屏宽的比例；高度按原图比例自动换算，各尺寸屏幕视觉比例一致。 */
-    private static final float HERO_WIDTH_RATIO = 0.744f;
+    private static final float HERO_WIDTH_RATIO = FeatheredImageView.WIDTH_RATIO;
     /**
      * 「最近观看」**海报顶部**（不是板块标题）与右上角背景图下边界的重合高度：100px。
      *
@@ -132,7 +133,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private static final long SPLASH_TIMEOUT = 8000L;
     /** 首页「首页」胶囊上连按两次返回退出：两次间隔上限。 */
     private static final long BACK_EXIT_WINDOW = 2000L;
-    /** 行内海报的横向间距（dp）：「最近观看」4.5 个海报的行宽也按这个值推算。 */
+    /** 行内海报的横向间距（dp）：「最近观看」与其它海报行共用。 */
     private static final int ROW_SPACING_DP = 16;
     /**
      * 片名 logo 右边缘越过右上角背景图左边界的距离（物理像素）。
@@ -312,10 +313,9 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         selector.addPresenter(Vod.class, new VodPresenter(this, Style.list()));
         selector.addPresenter(ListRow.class, new CustomRowPresenter(ROW_SPACING_DP), VodPresenter.class);
         mPresenter = new HistoryPresenter(this);
-        // 「最近观看」行宽固定为 4.5 个海报：左边起点仍贴着列表内边距，只把右边界收进来。
-        CustomRowPresenter historyRow = new CustomRowPresenter(ROW_SPACING_DP, FocusHighlight.ZOOM_FACTOR_SMALL, HorizontalGridView.FOCUS_SCROLL_ALIGNED);
-        historyRow.setRowWidth(mPresenter.getRowWidth(ResUtil.dp2px(ROW_SPACING_DP)));
-        selector.addPresenter(ListRow.class, historyRow, HistoryPresenter.class);
+        // 「最近观看」行与首页 / 分类页的其它海报行保持同一套布局：行宽不设上限，
+        // 占满整个内容区；只沿用「对齐滚动」这一条横向滚动策略，海报尺寸与间距都不变。
+        selector.addPresenter(ListRow.class, new CustomRowPresenter(ROW_SPACING_DP, FocusHighlight.ZOOM_FACTOR_SMALL, HorizontalGridView.FOCUS_SCROLL_ALIGNED), HistoryPresenter.class);
         mBinding.recycler.setAdapter(new ItemBridgeAdapter(mAdapter = new ArrayObjectAdapter(selector)));
         // 行间距 16dp → 8dp：首页「区块标题 ↔ 海报」之间的空白只有这一层，收紧后标题更贴海报。
         mBinding.recycler.setVerticalSpacing(ResUtil.dp2px(8));
@@ -586,7 +586,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private void setupHeroFocus() {
         getWindow().getDecorView().getViewTreeObserver()
                 .addOnGlobalFocusChangeListener((oldFocus, newFocus) -> updateHeroFor(newFocus));
-        TmdbApi.setOnFetched(mTmdbRefresh);
+        TmdbApi.addOnFetched(mTmdbRefresh);
     }
 
     /**
@@ -633,10 +633,11 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     /**
      * 第二个抓取入口：播放页之外，最近观看海报获得焦点时按海报名补抓。
-     * 内部有总开关 / 焦点开关、缓存命中、并发去重与 miss 冷却，横移海报不会产生大量请求。
+     * 只受总开关控制（原「海报聚焦时抓取」子开关已移除，功能保持常开）；
+     * 内部还有缓存命中、并发去重与 miss 冷却，横移海报不会产生大量请求。
      */
     private void fetchTmdbForHistory(History history) {
-        if (!TmdbSetting.isEnabled() || !TmdbSetting.isFocusFetch()) return;
+        if (!TmdbSetting.isEnabled()) return;
         String name = history.getVodName();
         if (TextUtils.isEmpty(name)) return;
         TmdbApi.fetch(name, null, null);
@@ -1222,7 +1223,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     @Override
     protected void onDestroy() {
-        TmdbApi.setOnFetched(null);
+        TmdbApi.removeOnFetched(mTmdbRefresh);
         if (--instanceCount == 0) {
             BackupManager.backup();
             releaseResources();

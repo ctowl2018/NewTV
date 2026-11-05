@@ -79,7 +79,7 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         mBinding.incognitoText.setText(Setting.getSwitch(Setting.isIncognito()));
         mBinding.searchSuggestText.setText(Setting.getSwitch(Setting.isSearchSuggest()));
         mBinding.sizeText.setText((size = ResUtil.getStringArray(R.array.select_size))[PlayerSetting.getSize()]);
-        mBinding.tmdbText.setText(TmdbSetting.getApiUrl());
+        mBinding.tmdbText.setText(getString(R.string.tmdb_site_summary, TmdbSetting.getSites().size()));
     }
 
     @Override

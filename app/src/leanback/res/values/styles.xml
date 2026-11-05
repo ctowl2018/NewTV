@@ -297,4 +297,20 @@
         <item name="android:focusableInTouchMode">true</item>
     </style>
 
+    <!--
+      播放页浮层标题行：选择弹幕 / 弹幕搜索 / 更多设置 共用同一套内边距。
+
+      左 12dp、上 6dp、右 4dp（留给 36dp 圆形动作图标）、下 8dp，垂直居中。
+      标题文字统一引用 {@code PlaybackSheetTitle}（15sp 纯白），宽度 / 权重仍在各布局里显式写。
+      三处都引用这两个 style —— 只要有一处单独写数值，标题的高低就会重新跑偏。
+    -->
+    <style name="PlaybackSheetTitleRow">
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingTop">6dp</item>
+        <item name="android:paddingEnd">4dp</item>
+        <item name="android:paddingBottom">8dp</item>
+    </style>
+
 </resources>

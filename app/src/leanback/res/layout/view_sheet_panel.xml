@@ -15,6 +15,25 @@
     android:minWidth="220dp"
     android:orientation="vertical">
 
+    <!--
+      标题行：与「选择弹幕」浮层完全同一套标题规范（style 见 values/styles.xml）。
+      只做视觉标题，不参与焦点链 —— PanelSheet 的焦点串接只遍历下面的 sheetRows。
+    -->
+    <androidx.appcompat.widget.LinearLayoutCompat
+        style="@style/PlaybackSheetTitleRow"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/sheetPanelTitle"
+            style="@style/PlaybackSheetTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/setting_more" />
+
+    </androidx.appcompat.widget.LinearLayoutCompat>
+
     <androidx.appcompat.widget.LinearLayoutCompat
         android:id="@+id/sheetRows"
         android:layout_width="match_parent"

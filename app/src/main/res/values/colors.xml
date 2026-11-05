@@ -26,6 +26,9 @@
     <color name="white_80">#CCFFFFFF</color>
     <color name="white_90">#E6FFFFFF</color>
     <color name="background">#141414</color>
+    <!-- TMDB 刮削日志：失败标红、成功标绿，正常阶段用白色 -->
+    <color name="tmdb_log_fail">#FF7B7B</color>
+    <color name="tmdb_log_ok">#8FD98F</color>
     <color name="splash_background">#141414</color>
     <!-- 启动欢迎页底色：与 App 主背景同色，系统启动窗口 → 闪屏层 → 首页全程不跳色 -->
     <color name="startup_background">#141414</color>

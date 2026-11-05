@@ -4,6 +4,7 @@ import android.animation.TimeInterpolator;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
@@ -13,6 +14,7 @@ import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
 import android.view.animation.PathInterpolator;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -21,6 +23,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.view.OneShotPreDrawListener;
 import androidx.fragment.app.FragmentActivity;
 import androidx.leanback.widget.OnChildViewHolderSelectedListener;
 import androidx.lifecycle.ViewModelProvider;
@@ -39,6 +42,7 @@ import com.fongmi.android.NewTV.R;
 import com.fongmi.android.NewTV.api.DanmakuApi;
 import com.fongmi.android.NewTV.api.SiteApi;
 import com.fongmi.android.NewTV.api.TmdbApi;
+import com.fongmi.android.NewTV.api.TmdbStore;
 import com.fongmi.android.NewTV.api.config.VodConfig;
 import com.fongmi.android.NewTV.bean.Danmaku;
 import com.fongmi.android.NewTV.bean.DanmakuTitle;
@@ -50,6 +54,7 @@ import com.fongmi.android.NewTV.bean.Parse;
 import com.fongmi.android.NewTV.bean.Result;
 import com.fongmi.android.NewTV.bean.Site;
 import com.fongmi.android.NewTV.bean.Sub;
+import com.fongmi.android.NewTV.bean.TmdbArt;
 import com.fongmi.android.NewTV.bean.Vod;
 import com.fongmi.android.NewTV.databinding.ActivityVideoBinding;
 import com.fongmi.android.NewTV.db.AppDatabase;
@@ -71,12 +76,14 @@ import com.fongmi.android.NewTV.player.media.PlaySpec;
 import com.fongmi.android.NewTV.service.PlaybackService;
 import com.fongmi.android.NewTV.setting.DanmakuSetting;
 import com.fongmi.android.NewTV.setting.PlayerSetting;
+import com.fongmi.android.NewTV.setting.TmdbSetting;
 import com.fongmi.android.NewTV.ui.adapter.ArrayAdapter;
 import com.fongmi.android.NewTV.ui.adapter.EpisodeAdapter;
 import com.fongmi.android.NewTV.ui.adapter.FlagAdapter;
 import com.fongmi.android.NewTV.ui.adapter.PartAdapter;
 import com.fongmi.android.NewTV.ui.adapter.QualityAdapter;
 import com.fongmi.android.NewTV.ui.adapter.QuickAdapter;
+import com.fongmi.android.NewTV.ui.custom.FeatheredImageView;
 import com.fongmi.android.NewTV.ui.custom.VodInput;
 import com.fongmi.android.NewTV.ui.custom.CustomMovement;
 import com.fongmi.android.NewTV.ui.helper.ControlFocusEffect;
@@ -122,6 +129,22 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     private static final long SLIDE_OUT_DURATION = 200L;
     private static final TimeInterpolator SLIDE_IN = new PathInterpolator(0.05f, 0.7f, 0.1f, 1f);
     private static final TimeInterpolator SLIDE_OUT = new PathInterpolator(0.3f, 0f, 0.8f, 0.15f);
+    /** 详情页右上角背景图的宽度占屏宽比例：直接复用首页那个常量（高度按原图比例换算）。 */
+    private static final float DETAIL_HERO_WIDTH_RATIO = FeatheredImageView.WIDTH_RATIO;
+    /**
+     * 详情页背景图的最终不透明度：30%（即 70% 透明）。
+     *
+     * <p>与 {@code activity_video.xml} 里 {@code videoHero} 的 {@code android:alpha} 必须一致 ——
+     * 布局里那份是静态预览值，运行时一律由这里的渐入动画收到这个终值。</p>
+     */
+    private static final float DETAIL_HERO_ALPHA = 0.3f;
+    /** 背景图渐入时长：比控件自身的过渡稍长，让「浮现」是这一帧之后唯一还在动的东西。 */
+    private static final long DETAIL_HERO_FADE_DURATION = 420L;
+    /**
+     * 兜底等待：内容首帧迟迟不来（详情接口超时、页面被遮挡没有绘制）时，最多等这么久就把背景图
+     * 直接摆到最终透明度 —— 宁可少一次渐入，也不要一直停在隐形态。
+     */
+    private static final long DETAIL_HERO_READY_TIMEOUT = 2000L;
     /** 倍速浮层的候选值，升序；菜单里从下往上排，所以显示时倒序。 */
     private static final float[] SPEEDS = {0.5f, 0.8f, 1.0f, 1.2f, 1.5f, 2.0f, 3.0f, 5.0f};
     /** 倍速浮层一屏显示的行数，其余靠滚动查看（8 档 > 5 行，因此打开时可把 1.0x 停在最底部）。 */
@@ -178,6 +201,28 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     private String mTmdbFetchedKey;
     private boolean mTmdbKeywordReady;
     private boolean mTmdbPlaybackStarted;
+    /** 这一次抓取由用户点「TMDB刮削」按钮发起：结果无论成功失败都要提示，不受设置里的提示开关限制。 */
+    private boolean mTmdbManual;
+    /** 当前显示的详情页背景图对应的 TMDB 缓存文件名；null = 没有可显示的背景图。 */
+    private String mHeroArt;
+    /** 背景图素材已载入控件、正等内容首帧（或已显示）。 */
+    private boolean mHeroPrepared;
+    /** 背景图已经渐入（或兜底直接显示）过一次；避免每条回调都把透明度重播一遍。 */
+    private boolean mHeroShown;
+    /** 内容层（封面 / 标题 / 控制栏）已经真正绘制过一帧，这是背景图渐入的放行条件。 */
+    private boolean mContentDrawn;
+    /** 内容首帧监听已挂上，防止重复注册 OneShotPreDrawListener。 */
+    private boolean mContentDrawnPending;
+    /**
+     * 兜底：内容首帧没来（接口超时 / 页面未绘制）时，直接把背景图摆到最终透明度，
+     * 保证「有素材却始终看不见」这种异常状态不会持续。
+     */
+    private final Runnable mHeroFallback = () -> fadeInDetailHero(false);
+    /**
+     * 刮削完成后的背景图刷新：不区分这次抓取由谁发起（首页海报聚焦 / 本页播放起播），
+     * 结果落地后都按当前片名重新对一次缓存 —— 否则「首页发起、详情页正开着」时会漏掉这张图。
+     */
+    private final Runnable mHeroRefresh = () -> updateDetailHero(detailName());
     private final Runnable mTmdbFallback = this::onTmdbDanmakuTimeout;
 
     public static void push(FragmentActivity activity, String text) {
@@ -327,6 +372,9 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mVod.reset();
         setIntent(intent);
         renderFallbackName(getName());
+        // 换片：背景图状态复位，新片重新走一遍「等内容首帧再渐入」，不会沿用上一部的透明度。
+        resetDetailHero();
+        updateDetailHero(getName());
         updateNavigationKey();
         checkId();
     }
@@ -348,6 +396,12 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         setVideoView();
         setViewModel();
         renderFallbackName(getName());
+        // 打开页面立刻用本地缓存铺好右上角背景图（有则显示、无则保持空白），不等详情接口返回。
+        updateDetailHero(getName());
+        // 兜底计时：内容首帧迟迟不来（接口卡住 / 页面没绘制）时不至于一直看不见这张图。
+        App.post(mHeroFallback, DETAIL_HERO_READY_TIMEOUT);
+        // 抓取结果可能由首页发起、也可能由本页发起：两种情况都要能实时回填这张背景图。
+        TmdbApi.addOnFetched(mHeroRefresh);
         checkCast();
         checkId();
     }
@@ -358,6 +412,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mBinding.keep.setOnClickListener(view -> onKeep());
         mBinding.video.setOnClickListener(view -> onVideo());
         mBinding.change.setOnClickListener(view -> onChange());
+        mBinding.tmdb.setOnClickListener(view -> onTmdbRetry());
         mBinding.content.setOnClickListener(view -> onContent());
         mBinding.control.action.text.setOnClickListener(this::onTrack);
         mBinding.control.action.audio.setOnClickListener(this::onTrack);
@@ -804,13 +859,201 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         String key = getHistoryKey();
         if (TextUtils.equals(key, mTmdbFetchedKey)) return;
         mTmdbFetchedKey = key;
+        mTmdbManual = false;
+        // 结果本身由 TmdbApi 写入本地缓存并和这些别名关联，首页最近观看按海报名即可命中。
+        TmdbApi.fetch(mTmdbKeyword, mTmdbPosterName, tmdbAliases(), mTmdbCallback);
+    }
+
+    /** 关联别名：海报名、当前站点片名、弹幕片名都指向同一份素材。 */
+    private List<String> tmdbAliases() {
         List<String> aliases = new ArrayList<>();
         if (mHistory != null) aliases.add(mHistory.getVodName());
         aliases.add(mTmdbPosterName);
         aliases.add(getName());
         aliases.add(mTmdbKeyword);
-        // 结果本身由 TmdbApi 写入本地缓存并和这些别名关联，首页最近观看按海报名即可命中。
-        TmdbApi.fetch(mTmdbKeyword, mTmdbPosterName, aliases);
+        return aliases;
+    }
+
+    /**
+     * 自动刮削的结果回调。失败时按「刮削失败提示」开关决定是否弹 Toast；
+     * 手动重试（点「TMDB刮削」按钮）成功、失败都提示 —— 用户主动点了，总要给个回执。
+     */
+    private final TmdbApi.FetchCallback mTmdbCallback = new TmdbApi.FetchCallback() {
+
+        @Override
+        public void onSuccess(String keyword, TmdbArt art) {
+            // 刮削成功即刻回填背景图（不加载 logo）：这一步是「进入页面后才有素材」的实时路径。
+            applyDetailHero(art);
+            onTmdbResult(true, keyword, art == null ? "" : art.getTitle(), "");
+        }
+
+        @Override
+        public void onFailure(String keyword, String reason) {
+            onTmdbResult(false, keyword, "", reason);
+        }
+    };
+
+    private void onTmdbResult(boolean success, String keyword, String title, String reason) {
+        boolean manual = mTmdbManual;
+        mTmdbManual = false;
+        if (success) {
+            if (manual) Notify.show(getString(R.string.tmdb_retry_success, TextUtils.isEmpty(title) ? keyword : title));
+            return;
+        }
+        if (!manual && !TmdbSetting.isErrorToast()) return;
+        Notify.show(getString(R.string.tmdb_fetch_failed, reason));
+    }
+
+    /** 「TMDB刮削」按钮：跳过内部冷却与 miss 记录强制重抓，用于刮削失败后的手动重试。 */
+    private void onTmdbRetry() {
+        if (!TmdbSetting.isEnabled()) {
+            Notify.show(R.string.tmdb_disabled_hint);
+            return;
+        }
+        if (TextUtils.isEmpty(mTmdbKeyword)) mTmdbKeyword = mTmdbPosterName;
+        if (TextUtils.isEmpty(mTmdbKeyword)) {
+            Notify.show(R.string.tmdb_no_keyword);
+            return;
+        }
+        mTmdbManual = true;
+        // 清掉「本片已抓过」标记，否则手动重试会被去重逻辑直接挡掉。
+        mTmdbFetchedKey = null;
+        Notify.show(R.string.tmdb_retry_start);
+        TmdbApi.retry(mTmdbKeyword, mTmdbPosterName, tmdbAliases(), mTmdbCallback);
+    }
+
+    // ------------------------------------------------------------ 详情页右上角背景图
+
+    /**
+     * 按片名加载详情页背景图。
+     *
+     * <p>只取 TMDB 记录里的背景图，<b>不加载片名 logo</b>：详情页的内容区已经排满文字与按钮，
+     * 再叠一层 logo 会与标题抢视觉重心。片名命中不了就什么都不显示（保持纯背景色）。</p>
+     */
+    private void updateDetailHero(@Nullable String name) {
+        if (TextUtils.isEmpty(name)) return;
+        applyDetailHero(TmdbStore.find(name));
+    }
+
+    /** 当前详情页的片名：优先用历史记录里的海报名（TMDB 别名就是按它关联的），
+     * 详情还没回来时退回 intent 里带的名字。 */
+    private String detailName() {
+        return mHistory != null && !TextUtils.isEmpty(mHistory.getVodName()) ? mHistory.getVodName() : getName();
+    }
+
+    /**
+     * 应用一条 TMDB 素材里的背景图：尺寸与容器层级都与首页一致。
+     *
+     * <p>{@code videoHero} 是根布局的第一个子 View（{@code FeatheredImageView}），
+     * 永远绘制在内容层之下，只作氛围背景，不覆盖播放器、文字、按钮与浮层；
+     * 宽度取屏宽的 {@link #DETAIL_HERO_WIDTH_RATIO}、右侧贴边、高度按原图比例，
+     * 最终不透明度为 {@link #DETAIL_HERO_ALPHA}（30%，即 70% 透明）。</p>
+     *
+     * <p><b>时序</b>：这里只负责「把素材装进控件并保持全透明」，真正露脸要等内容层
+     * 首帧绘制完成（{@link #notifyContentRendered()}）后才由 {@link #fadeInDetailHero(boolean)}
+     * 渐入 —— 打开页面时封面、标题、控制栏在同一帧里铺好，背景图不会提前亮起来把画面闪一下。</p>
+     *
+     * <p>位图由 {@code TmdbStore} 的内存缓存持有，这里只读不回收；同一条素材重复应用时直接跳过。</p>
+     */
+    private void applyDetailHero(@Nullable TmdbArt art) {
+        String path = art != null && art.hasBackdrop() ? art.getBackdrop() : null;
+        if (TextUtils.equals(path, mHeroArt) && (path == null || mHeroPrepared)) return;
+        Bitmap bitmap = TextUtils.isEmpty(path) ? null : TmdbStore.bitmap(path);
+        if (bitmap == null) path = null;
+        mHeroArt = path;
+        if (path == null) {
+            // 没有关联背景图 / 位图解码失败：整层收起，界面回到「纯背景色」，不留半透明空壳。
+            mHeroPrepared = false;
+            mHeroShown = false;
+            mBinding.videoHero.animate().cancel();
+            mBinding.videoHero.setImageDrawable(null);
+            mBinding.videoHero.setAlpha(0f);
+            mBinding.videoHero.setVisibility(View.GONE);
+            return;
+        }
+        mHeroPrepared = true;
+        FeatheredImageView hero = mBinding.videoHero;
+        hero.animate().cancel();
+        // 已露过脸的直接回到终值（可能打断了一次进行中的渐入）；还没露脸的一律先全透明，
+        // 位图与羽化都在看不见的时候算完，渐入只改 alpha。
+        hero.setAlpha(mHeroShown ? DETAIL_HERO_ALPHA : 0f);
+        hero.load(bitmap, DETAIL_HERO_WIDTH_RATIO);
+        // 全屏播放时整屏交给画面，背景图不参与绘制；退出全屏时再放出来（见 exitFullscreen）。
+        if (isFullscreen()) {
+            hero.setVisibility(View.GONE);
+            return;
+        }
+        hero.setVisibility(View.VISIBLE);
+        // 内容已经画完了（例如刮削成功回填、换素材）就立刻渐入；否则等首帧信号。
+        fadeInDetailHero(mContentDrawn);
+    }
+
+    /**
+     * 一次性的「内容已渲染」信号：封面、标题、播放控制栏都已回填并真正画到屏幕上。
+     *
+     * <p>用挂在内容层上的 {@code OneShotPreDrawListener} 而不是 {@code post} / 固定延时：
+     * pre-draw 只在所在视图树真的要绘制时才回调，比任何猜测都准；再 post 一帧，
+     * 保证渐入发生在「控件已经上屏」之后，不会出现背景先亮、控件后到的闪烁。</p>
+     */
+    private void notifyContentRendered() {
+        if (mContentDrawn) {
+            fadeInDetailHero(true);
+            return;
+        }
+        if (mContentDrawnPending) return;
+        mContentDrawnPending = true;
+        OneShotPreDrawListener.add(mBinding.progressLayout, () -> App.post(() -> {
+            mContentDrawnPending = false;
+            mContentDrawn = true;
+            App.removeCallbacks(mHeroFallback);
+            fadeInDetailHero(true);
+        }));
+    }
+
+    /**
+     * 让背景图渐入到最终透明度。
+     *
+     * @param animate true 走 {@link #DETAIL_HERO_FADE_DURATION} 的渐入；false 直接落到终值
+     *                （控件加载失败 / 等待超时 / 退出全屏恢复时的兜底，不制造第二段动画）
+     */
+    private void fadeInDetailHero(boolean animate) {
+        if (!mHeroPrepared || mHeroShown || isFullscreen()) return;
+        mHeroShown = true;
+        App.removeCallbacks(mHeroFallback);
+        View hero = mBinding.videoHero;
+        hero.animate().cancel();
+        hero.setVisibility(View.VISIBLE);
+        if (!animate) {
+            hero.setAlpha(DETAIL_HERO_ALPHA);
+            return;
+        }
+        hero.setAlpha(0f);
+        hero.animate().alpha(DETAIL_HERO_ALPHA).setDuration(DETAIL_HERO_FADE_DURATION).setInterpolator(new DecelerateInterpolator()).start();
+    }
+
+    /** 退出全屏：把全屏期间收起的背景图放回来（已渐入过的直接给终值，没渐入过的补一次）。 */
+    private void restoreDetailHero() {
+        if (!mHeroPrepared) {
+            mBinding.videoHero.setVisibility(View.GONE);
+            return;
+        }
+        mBinding.videoHero.setVisibility(View.VISIBLE);
+        mBinding.videoHero.setAlpha(mHeroShown ? DETAIL_HERO_ALPHA : 0f);
+        if (!mHeroShown) fadeInDetailHero(mContentDrawn);
+    }
+
+    /** 换片：状态复位，让新片重新走一遍「等内容首帧 → 渐入」，并重新武装兜底计时。 */
+    private void resetDetailHero() {
+        mHeroPrepared = false;
+        mHeroShown = false;
+        mContentDrawn = false;
+        mHeroArt = null;
+        mBinding.videoHero.animate().cancel();
+        mBinding.videoHero.setImageDrawable(null);
+        mBinding.videoHero.setAlpha(0f);
+        mBinding.videoHero.setVisibility(View.GONE);
+        App.removeCallbacks(mHeroFallback);
+        App.post(mHeroFallback, DETAIL_HERO_READY_TIMEOUT);
     }
 
     @Override
@@ -818,12 +1061,16 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mHistory = history;
         mBinding.progressLayout.showContent();
         renderFallbackName(item.getName());
+        // 详情数据到达后按真实片名再对一次缓存：换集 / 别名不同也能命中同一份素材。
+        updateDetailHero(TextUtils.isEmpty(history.getVodName()) ? item.getName() : history.getVodName());
         mBinding.video.requestFocus();
         App.removeCallbacks(mR4);
         setArtwork(item.getPic());
         checkKeepImg();
         setText(item);
         updateKeep();
+        // 封面 / 标题 / 控制栏都回填完了：等这一帧真正绘制出来再让背景图渐入。
+        notifyContentRendered();
     }
 
     @Override
@@ -837,8 +1084,10 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         if (name.isEmpty() && pic.isEmpty()) return;
         if (!name.isEmpty()) renderFallbackName(name);
         if (!name.isEmpty()) setPartAdapter();
+        if (!name.isEmpty()) updateDetailHero(name);
         if (!pic.isEmpty()) setArtwork();
         updateKeep();
+        notifyContentRendered();
     }
 
     @Override
@@ -1063,6 +1312,10 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     private void showEmpty() {
         mBinding.progressLayout.showEmpty();
+        // 详情加载失败 / 超时：控件不会再有「加载完成」这一步，背景图直接落到终值 ——
+        // 有一层淡淡的氛围图，界面不至于空成一块黑板；不做渐入，避免和空态文字抢出场顺序。
+        mContentDrawn = true;
+        fadeInDetailHero(false);
     }
 
     private void setText(Vod item) {
@@ -1181,6 +1434,9 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mFocus1 = getCurrentFocus();
         // 全屏时隐藏顶部 logo 栏：整屏交给画面，返回键退出全屏后再恢复。
         mBinding.toolbar.getRoot().setVisibility(View.GONE);
+        // 详情页背景图同属页面装饰，全屏播放时一并收起（正在渐入的话连动画一起掐掉）。
+        mBinding.videoHero.animate().cancel();
+        mBinding.videoHero.setVisibility(View.GONE);
         mBinding.video.requestFocus();
         mBinding.video.setForeground(null);
         mBinding.video.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
@@ -1194,6 +1450,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     private void exitFullscreen() {
         mBinding.toolbar.getRoot().setVisibility(View.VISIBLE);
+        restoreDetailHero();
         mBinding.video.setForeground(ResUtil.getDrawable(R.drawable.selector_video));
         mBinding.video.setLayoutParams(mFrameParams);
         getFocus1().requestFocus();
@@ -2315,6 +2572,9 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         RefreshEvent.keep();
         App.removeCallbacks(mR1, mR2, mR3, mR4);
         App.removeCallbacks(mTmdbFallback);
+        App.removeCallbacks(mHeroFallback);
+        mBinding.videoHero.animate().cancel();
+        TmdbApi.removeOnFetched(mHeroRefresh);
         if (mSheet != null) mSheet.dismissNow();
         super.onDestroy();
     }

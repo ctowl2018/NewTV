@@ -285,6 +285,7 @@
     <string name="setting_vod">点播</string>
     <string name="setting_live">直播</string>
     <string name="setting_player">播放设置</string>
+    <string name="setting_more">更多设置</string>
     <string name="setting_danmaku">弹幕设置</string>
     <string name="setting_incognito">无痕模式（不记录历史）</string>
     <string name="setting_size">首页每行海报数</string>
@@ -630,12 +631,34 @@
     <string name="search_hot_variety">热门综艺</string>
 
     <string name="setting_tmdb">TMDB 配置</string>
-    <string name="tmdb_api">API 地址</string>
-    <string name="tmdb_key">API 密钥</string>
-    <string name="tmdb_enable">启用 TMDB 抓取</string>
-    <string name="tmdb_focus">海报聚焦时抓取</string>
+    <string name="tmdb_enable">启用TMDB刮削</string>
+    <string name="tmdb_site_index">站点 %1$d</string>
+    <string name="tmdb_add_site">添加站点</string>
+    <string name="tmdb_site_url_hint">站点地址，如 https://***REMOVED***</string>
+    <string name="tmdb_site_key_hint">该站点的 API 密钥</string>
+    <string name="tmdb_site_delete">删除</string>
+    <string name="tmdb_site_invalid">地址需以 http:// 或 https:// 开头</string>
+    <string name="tmdb_site_key_required">API 密钥不能为空</string>
+    <string name="tmdb_site_min">至少保留一个站点</string>
+    <string name="tmdb_site_max">最多只能配置 %1$d 个站点</string>
+    <string name="tmdb_site_summary">%1$d 个站点轮换</string>
     <string name="tmdb_cache">缓存（背景图）</string>
     <string name="tmdb_cache_info">%1$d 张 · %2$s</string>
     <string name="tmdb_clear">清理缓存</string>
     <string name="tmdb_clear_confirm">确认删除全部 TMDB 背景图与 logo 缓存？</string>
+    <!-- 刮削失败提示开关：默认开启，位于「启用TMDB刮削」下方 -->
+    <string name="tmdb_error_toast">刮削失败提示</string>
+    <string name="tmdb_fetch_failed">TMDB 刮削失败：%1$s</string>
+    <string name="tmdb_retry">TMDB刮削</string>
+    <string name="tmdb_retry_start">正在重新刮削 TMDB…</string>
+    <string name="tmdb_retry_success">TMDB 刮削成功：%1$s</string>
+    <string name="tmdb_disabled_hint">请先在「设置 → TMDB 配置」中启用TMDB刮削</string>
+    <string name="tmdb_no_keyword">没有可用的片名，无法刮削</string>
+    <string name="tmdb_log_entry">查看 TMDB 刮削日志</string>
+    <string name="tmdb_log_title">TMDB 刮削日志</string>
+    <string name="tmdb_log_hint">按时间记录每次刮削的阶段、请求与响应，最多保留 240 条</string>
+    <string name="tmdb_log_summary">共 %1$d 条 · 失败 %2$d 次</string>
+    <string name="tmdb_log_clear">清空日志</string>
+    <string name="tmdb_log_clear_confirm">确认清空全部 TMDB 刮削日志？</string>
+    <string name="tmdb_log_empty">暂无日志。播放影片后这里会出现刮削记录。</string>
 </resources>

@@ -21,75 +21,11 @@
             android:textColor="@color/white"
             android:textSize="20sp" />
 
-        <!-- API 地址 -->
-        <androidx.appcompat.widget.LinearLayoutCompat
-            android:id="@+id/tmdbApi"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/selector_item"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:orientation="horizontal">
-
-            <com.google.android.material.textview.MaterialTextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="16dp"
-                android:text="@string/tmdb_api"
-                android:textColor="@color/white"
-                android:textSize="18sp" />
-
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/tmdbApiText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="middle"
-                android:gravity="end"
-                android:singleLine="true"
-                android:textColor="@color/white"
-                android:textSize="18sp"
-                tools:text="https://***REMOVED***" />
-
-        </androidx.appcompat.widget.LinearLayoutCompat>
-
-        <!-- API 密钥 -->
-        <androidx.appcompat.widget.LinearLayoutCompat
-            android:id="@+id/tmdbKey"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:orientation="horizontal">
-
-            <com.google.android.material.textview.MaterialTextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="16dp"
-                android:text="@string/tmdb_key"
-                android:textColor="@color/white"
-                android:textSize="18sp" />
-
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/tmdbKeyText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="middle"
-                android:gravity="end"
-                android:singleLine="true"
-                android:textColor="@color/white"
-                android:textSize="18sp"
-                tools:text="***REMOVED***" />
-
-        </androidx.appcompat.widget.LinearLayoutCompat>
-
         <!-- 总开关：关闭后播放页与海报聚焦都不再抓取 -->
         <androidx.appcompat.widget.LinearLayoutCompat
             android:id="@+id/tmdbEnable"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
             android:background="@drawable/selector_item"
             android:focusable="true"
             android:focusableInTouchMode="true"
@@ -115,12 +51,11 @@
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 
-        <!-- 子开关：最近观看海报聚焦时补抓 -->
+        <!-- 失败提示开关：默认开启，紧跟总开关，位置固定 -->
         <androidx.appcompat.widget.LinearLayoutCompat
-            android:id="@+id/tmdbFocus"
+            android:id="@+id/tmdbToast"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
             android:background="@drawable/selector_item"
             android:focusable="true"
             android:focusableInTouchMode="true"
@@ -130,12 +65,12 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
-                android:text="@string/tmdb_focus"
+                android:text="@string/tmdb_error_toast"
                 android:textColor="@color/white"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/tmdbFocusText"
+                android:id="@+id/tmdbToastText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
@@ -143,6 +78,33 @@
                 android:textColor="@color/white"
                 android:textSize="18sp"
                 tools:text="开" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <!-- 站点列表：运行时按配置条数填充，一条站点一行，点击可改地址 / 密钥 -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/tmdbSites"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <!-- 添加站点：达到上限时隐藏 -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/tmdbAddSite"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/selector_item"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:orientation="horizontal">
+
+            <com.google.android.material.textview.MaterialTextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/tmdb_add_site"
+                android:textColor="@color/white"
+                android:textSize="18sp" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -201,6 +163,37 @@
                 android:singleLine="true"
                 android:textColor="@color/white"
                 android:textSize="18sp" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <!-- 查看 TMDB 刮削日志：排查失败原因时进这个页面 -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/tmdbLog"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/selector_item"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:orientation="horizontal">
+
+            <com.google.android.material.textview.MaterialTextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="16dp"
+                android:text="@string/tmdb_log_entry"
+                android:textColor="@color/white"
+                android:textSize="18sp" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/tmdbLogText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:singleLine="true"
+                android:textColor="@color/white"
+                android:textSize="18sp"
+                tools:text="12 条 · 失败 1 次" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 

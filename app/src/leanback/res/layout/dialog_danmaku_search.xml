@@ -19,25 +19,20 @@
     android:orientation="vertical"
     android:paddingBottom="10dp">
 
-    <!-- 标题行：标题 + 结果计数 + 弹幕接口设置 -->
+    <!-- 标题行：与「选择弹幕」浮层同一套标题规范（style 见 values/styles.xml），
+         标题 + 结果计数 + 弹幕接口设置 -->
     <androidx.appcompat.widget.LinearLayoutCompat
+        style="@style/PlaybackSheetTitleRow"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingTop="6dp"
-        android:paddingEnd="4dp"
-        android:paddingBottom="6dp">
+        android:layout_height="wrap_content">
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/title"
+            style="@style/PlaybackSheetTitle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/danmaku_search"
-            android:textColor="@color/white"
-            android:textSize="15sp" />
+            android:text="@string/danmaku_search" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/summary"
