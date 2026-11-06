@@ -17,6 +17,16 @@ public class DanmakuSetting {
     /** 默认弹幕搜索接口。 */
     public static final String DEFAULT_API_URL = "http://***REMOVED***";
 
+    /**
+     * 本项目默认值：字体效果＝阴影、最大滚动数＝3、垂直间距＝1.5。
+     * <p>这三项不能直接沿用 AAR 里的 {@link DanmakuConfig#DEFAULT} —— 该常量的值仍是官方
+     * 内置值（描边 / 0 / 1.4），一旦「重置」就与首次安装的默认状态不一致。
+     * 因此 getter 与 reset* 必须共用这里的常量。
+     */
+    public static final int DEFAULT_STYLE_MODE = DanmakuConfig.STYLE_SHADOW;
+    public static final int DEFAULT_MAX_SCROLL_LINES = 3;
+    public static final float DEFAULT_LINE_SPACING = 1.5f;
+
     private static final float MIN_TEXT_SCALE = 0.5f;
     private static final float MAX_TEXT_SCALE = 3.0f;
     private static final float MIN_TRANSPARENCY = 0.0f;
@@ -53,7 +63,7 @@ public class DanmakuSetting {
     }
 
     public static boolean isAuto() {
-        return Prefers.getBoolean("danmaku_auto");
+        return Prefers.getBoolean("danmaku_auto", true);
     }
 
     public static void putAuto(boolean auto) {
@@ -132,7 +142,7 @@ public class DanmakuSetting {
     }
 
     public static int getStyleMode() {
-        return Prefers.getInt("danmaku_style_mode", DanmakuConfig.STYLE_STROKE);
+        return Prefers.getInt("danmaku_style_mode", DEFAULT_STYLE_MODE);
     }
 
     public static void putStyleMode(int value) {
@@ -220,7 +230,7 @@ public class DanmakuSetting {
     }
 
     public static int getMaxScrollLines() {
-        return Math.clamp(Prefers.getInt("danmaku_max_scroll_lines", 0), MIN_MAX_SCROLL_LINES, MAX_MAX_SCROLL_LINES);
+        return Math.clamp(Prefers.getInt("danmaku_max_scroll_lines", DEFAULT_MAX_SCROLL_LINES), MIN_MAX_SCROLL_LINES, MAX_MAX_SCROLL_LINES);
     }
 
     public static void putMaxScrollLines(int value) {
@@ -244,7 +254,7 @@ public class DanmakuSetting {
     }
 
     public static float getLineSpacing() {
-        return Math.clamp(Prefers.getFloat("danmaku_line_spacing", 1.4f), MIN_LINE_SPACING, MAX_LINE_SPACING);
+        return Math.clamp(Prefers.getFloat("danmaku_line_spacing", DEFAULT_LINE_SPACING), MIN_LINE_SPACING, MAX_LINE_SPACING);
     }
 
     public static void putLineSpacing(float value) {
@@ -327,7 +337,8 @@ public class DanmakuSetting {
         putTransparency(config.transparency);
         putTextBold(config.textBold);
         putFont(null);
-        putStyleMode(config.styleMode);
+        // 字体效果用本项目默认值（阴影），不跟随 AAR 的 DEFAULT（描边）
+        putStyleMode(DEFAULT_STYLE_MODE);
         putShadowTransparency(config.shadowTransparency);
         putStrokeWidthMultiplier(config.strokeWidthMultiplier);
         putProjectionOffsetX(config.projectionOffsetXMultiplier);
@@ -347,8 +358,9 @@ public class DanmakuSetting {
         putMaxOnScreen(config.maxOnScreen);
         putScrollAreaRatio(config.scrollAreaRatio);
         putScrollGapRatio(config.scrollGapRatio);
-        putLineSpacing(config.lineSpacing);
-        putMaxScrollLines(config.maxScrollLines);
+        // 垂直间距与最大滚动数用本项目默认值，不跟随 AAR 的 DEFAULT（1.4 / 0）
+        putLineSpacing(DEFAULT_LINE_SPACING);
+        putMaxScrollLines(DEFAULT_MAX_SCROLL_LINES);
         putMaxTopLines(config.maxTopLines);
         putMaxBottomLines(config.maxBottomLines);
     }
