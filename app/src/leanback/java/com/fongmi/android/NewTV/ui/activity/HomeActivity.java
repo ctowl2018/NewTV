@@ -83,6 +83,7 @@ import com.github.catvod.net.OkHttp;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -167,10 +168,27 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private boolean mRecentLayoutApplied;
     /** 贴底布局校准是否已排入下一帧：避免一次布局变化连发多个 post。 */
     private boolean mRecentLayoutPending;
+    /** 焦点不在任何海报上时，刮削背景的轮换间隔。 */
+    private static final long HERO_ROTATE_INTERVAL_MS = 15_000L;
+    /** 背景轮换是否运行中（仅焦点离开海报时运行）。 */
+    private boolean mHeroRotating;
+    /** 当前轮换到的海报下标，顺序与「最近观看」列表一致（从左到右）。 */
+    private int mHeroRotateIndex;
+    /** 离开海报列表时的最后焦点下标；-1 = 本次进入首页后尚未落过任何海报。 */
+    private int mHeroRotateAnchor = -1;
+    /** 「最近观看」列表快照，供轮换定时器使用，避免每次轮换都查库。 */
+    private List<History> mHeroRotateItems = Collections.emptyList();
+    /** 轮换任务：只换背景与 logo，绝不改动列表焦点或选中位置。 */
+    private final Runnable mHeroRotateTask = () -> {
+        if (!mHeroRotating) return;
+        rotateHero();
+    };
+
     /** 后台抓取完成后刷回当前焦点海报；字段强引用，配合 TmdbApi 内的弱引用使用。 */
     private final Runnable mTmdbRefresh = () -> {
-        View focus = getCurrentFocus();
-        if (findHistory(focus) != null) updateHeroFor(focus);
+        History history = findHistory(getCurrentFocus());
+        if (history != null) applyHeroArt(history, false);
+        else if (mHeroRotating) showHeroAt(mHeroRotateIndex);
     };
     /** 欢迎页状态：logo 已出现 + 首页内容就绪，两者都满足才淡出。 */
     private boolean splashShown;
@@ -574,14 +592,54 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     /** 用全局焦点监听关联海报与背景图：不覆盖 Presenter / Leanback 自己挂的焦点回调。 */
     private void setupHeroFocus() {
         getWindow().getDecorView().getViewTreeObserver()
-                .addOnGlobalFocusChangeListener((oldFocus, newFocus) -> updateHeroFor(newFocus));
+                .addOnGlobalFocusChangeListener(this::onHeroFocusChanged);
         TmdbApi.addOnFetched(mTmdbRefresh);
     }
 
-    private void updateHeroFor(View focus) {
-        History history = findHistory(focus);
-        if (history != null) fetchTmdbForHistory(history);
-        TmdbArt art = history == null ? null : TmdbStore.find(history.getVodName());
+    /**
+     * 焦点进出海报的统一入口。
+     *
+     * <ul>
+     *   <li>焦点落在海报上 → 停轮换，立即显示该海报的刮削素材，并记住它在列表中的位置；</li>
+     *   <li>焦点离开海报 → 以「离开时那张」为起点开始 15s 轮换；若从未落过海报则从第 0 张开始。</li>
+     * </ul>
+     * 轮换只改背景与 logo，不动 recycler 的焦点与选中位置。
+     */
+    private void onHeroFocusChanged(View oldFocus, View newFocus) {
+        History target = findHistory(newFocus);
+        if (target != null) {
+            int index = indexOfHero(target);
+            if (index >= 0) mHeroRotateAnchor = index;
+            stopHeroRotate();
+            applyHeroArt(target, true);
+            return;
+        }
+        if (!isRecentSectionActive()) {
+            // 焦点在其它板块：不轮换，背景由该板块自己的海报焦点逻辑负责。
+            stopHeroRotate();
+            clearHeroArt();
+            return;
+        }
+        History previous = findHistory(oldFocus);
+        if (previous != null) {
+            int index = indexOfHero(previous);
+            if (index >= 0) mHeroRotateAnchor = index;
+        }
+        if (!mHeroRotating) startHeroRotate();
+    }
+
+    private int indexOfHero(History history) {
+        for (int i = 0; i < mHeroRotateItems.size(); i++) {
+            History item = mHeroRotateItems.get(i);
+            if (item == history || TextUtils.equals(item.getVodName(), history.getVodName())) return i;
+        }
+        return -1;
+    }
+
+    /** 把某条历史对应的刮削素材贴到背景与 logo 上（不涉及焦点）。 */
+    private void applyHeroArt(History history, boolean fetch) {
+        if (fetch) fetchTmdbForHistory(history);
+        TmdbArt art = TmdbStore.find(history.getVodName());
         String backdrop = art != null && art.hasBackdrop() ? art.getBackdrop() : null;
         Bitmap backdropBitmap = TextUtils.isEmpty(backdrop) ? null : TmdbStore.bitmap(backdrop);
         if (backdropBitmap == null) backdrop = null;
@@ -592,9 +650,99 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         updateLogo(logo, logoBitmap);
     }
 
+    /**
+     * 「最近观看」板块是否正在展示：分页不可见，且该板块自身的网格可见。
+     * 背景轮换只在这个板块内生效，推荐 / 分类等其它板块一律不轮换。
+     */
+    private boolean isRecentSectionActive() {
+        return mBinding.pager.getVisibility() != View.VISIBLE
+                && mBinding.recycler.getVisibility() == View.VISIBLE;
+    }
+
+    /**
+     * 清空「最近观看」板块的刮削素材：背景层直接隐藏（不加载内置海报墙，避免仍显示海报拼图），
+     * logo 淡出。其它板块不渲染任何属于本板块的海报素材。
+     */
+    private void clearHeroArt() {
+        mHeroArt = null;
+        mHeroLogo = null;
+        mBinding.homeHero.setVisibility(View.GONE);
+        HeroFade.crossFade(mBinding.homeLogo, null, true);
+    }
+
+    private void startHeroRotate() {
+        if (mHeroRotating) return;
+        // 只服务于「最近观看」板块：其它板块（更新推荐 / 分类）有自己的海报焦点，不在此轮换。
+        if (!isRecentSectionActive()) return;
+        if (mHeroRotateItems.isEmpty()) return; // 数据未就绪，等 getHistory() 回调再启动
+        mHeroRotating = true;
+        int index = findHeroWithArt(mHeroRotateAnchor < 0 ? 0 : mHeroRotateAnchor, true);
+        if (index < 0) {
+            // 一条可用素材都没有：回内置海报墙，但仍按轮换间隔重试，等刮削结果落盘。
+            fetchTmdbForHistory(mHeroRotateItems.get(Math.floorMod(mHeroRotateAnchor < 0 ? 0 : mHeroRotateAnchor, mHeroRotateItems.size())));
+            updateBackdrop(null, null);
+            updateLogo(null, null);
+        } else {
+            mHeroRotateIndex = index;
+            showHeroAt(index);
+        }
+        scheduleHeroRotate();
+    }
+
+    private void rotateHero() {
+        // 预取下一张的素材：刮削结果落盘后，下一轮即可参与轮换（fetch 自身有缓存/miss 节流）。
+        int size = mHeroRotateItems.size();
+        if (size > 0) fetchTmdbForHistory(mHeroRotateItems.get(Math.floorMod(mHeroRotateIndex + 1, size)));
+        int next = findHeroWithArt(mHeroRotateIndex + 1, false);
+        if (next >= 0 && next != mHeroRotateIndex) {
+            mHeroRotateIndex = next;
+            showHeroAt(next);
+        }
+        scheduleHeroRotate();
+    }
+
+    private void showHeroAt(int index) {
+        if (index < 0 || index >= mHeroRotateItems.size()) return;
+        applyHeroArt(mHeroRotateItems.get(index), false);
+    }
+
+    /** 从 from 起环形找一张「有 backdrop 且已落盘」的海报；inclusive=false 时跳过 from 本身。 */
+    private int findHeroWithArt(int from, boolean inclusive) {
+        int size = mHeroRotateItems.size();
+        if (size == 0) return -1;
+        int start = Math.floorMod(from, size);
+        int step = inclusive ? 0 : 1;
+        for (int i = 0; i < size; i++) {
+            int index = (start + i + step) % size;
+            TmdbArt art = TmdbStore.find(mHeroRotateItems.get(index).getVodName());
+            String path = art != null && art.hasBackdrop() ? art.getBackdrop() : null;
+            if (!TextUtils.isEmpty(path) && TmdbStore.bitmap(path) != null) return index;
+        }
+        return -1;
+    }
+
+    private void scheduleHeroRotate() {
+        App.post(mHeroRotateTask, HERO_ROTATE_INTERVAL_MS);
+    }
+
+    private void stopHeroRotate() {
+        mHeroRotating = false;
+        App.removeCallbacks(mHeroRotateTask);
+    }
+
+    /** onResume / 列表刷新后调用：焦点不在海报上就恢复轮换。 */
+    private void resumeHeroRotateIfIdle() {
+        if (mHeroRotating) return;
+        if (findHistory(getCurrentFocus()) != null) return;
+        startHeroRotate();
+    }
+
     private void updateBackdrop(@Nullable String path, @Nullable Bitmap bitmap) {
-        if (TextUtils.equals(path, mHeroArt)) return;
+        // 隐藏状态（其它板块）下同一张图也要重新上屏，不能因为 path 相同就跳过。
+        boolean hidden = mBinding.homeHero.getVisibility() != View.VISIBLE;
+        if (!hidden && TextUtils.equals(path, mHeroArt)) return;
         mHeroArt = path;
+        mBinding.homeHero.setVisibility(View.VISIBLE);
         if (path == null) mBinding.homeHero.load(R.drawable.home_hero, HERO_WIDTH_RATIO, true);
         else mBinding.homeHero.load(bitmap, HERO_WIDTH_RATIO);
     }
@@ -818,6 +966,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     private void getHistory(boolean renew) {
         List<History> items = History.get();
+        mHeroRotateItems = items;
         if (renew) {
             mHistoryAdapter = new ArrayObjectAdapter(mPresenter = new HistoryPresenter(this));
             if (hasHistoryRow()) mAdapter.removeItems(getHistoryIndex(), 1);
@@ -839,6 +988,15 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
                 : mHistoryAdapter;
         target.setItems(items, new BaseDiffCallback<History>());
         refreshRecentLayout();
+        // 列表变动后轮换下标可能越界，回到第一张；焦点不在海报时继续轮换。
+        if (mHeroRotating) {
+            int index = findHeroWithArt(mHeroRotateIndex, true);
+            if (index >= 0) {
+                mHeroRotateIndex = index;
+                showHeroAt(index);
+            }
+        }
+        resumeHeroRotateIfIdle();
     }
 
     /**
@@ -878,6 +1036,10 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         History.clear(VodConfig.getCid());
         mPresenter.setDelete(false);
         mHistoryAdapter.clear();
+        mHeroRotateItems = Collections.emptyList();
+        stopHeroRotate();
+        updateBackdrop(null, null);
+        updateLogo(null, null);
         showEmptyHint();
         refreshRecentLayout();
     }
@@ -1085,11 +1247,15 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         if (mBinding.progressLayout.isContent()) mBinding.recycler.setVisibility(View.VISIBLE);
         mBinding.progressLayout.setVisibility(View.VISIBLE);
         if (returning) resetRecentPoster();
+        // 回到本页：等焦点复位后再恢复背景轮换。
+        App.post(this::resumeHeroRotateIfIdle);
     }
 
     private void showCategory(int index) {
         if (mBinding.pager.getAdapter() == null) return;
         if (index < 0 || index >= mBinding.pager.getAdapter().getCount()) return;
+        stopHeroRotate(); // 离开「最近观看」板块：停止轮换，并清掉该板块的刮削素材
+        clearHeroArt();
         boolean alreadyShown = mBinding.pager.getVisibility() == View.VISIBLE && mBinding.pager.getCurrentItem() == index;
         mBinding.progressLayout.setVisibility(View.GONE);
         mBinding.pager.setVisibility(View.VISIBLE);
@@ -1153,12 +1319,14 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     protected void onResume() {
         super.onResume();
         mHeader.onResume();
+        resumeHeroRotateIfIdle();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         mHeader.onPause();
+        stopHeroRotate();
     }
 
     @Override
@@ -1199,6 +1367,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     @Override
     protected void onDestroy() {
+        stopHeroRotate();
         TmdbApi.removeOnFetched(mTmdbRefresh);
         if (--instanceCount == 0) {
             BackupManager.backup();
