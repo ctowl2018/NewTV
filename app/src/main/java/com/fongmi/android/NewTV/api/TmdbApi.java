@@ -186,8 +186,9 @@ public final class TmdbApi {
         if (!force) {
             for (String query : queries) {
                 if (TmdbStore.cached(query)) {
+                    // 命中缓存属于正常复用，不写日志：否则每次进详情页都会刷一条「跳过」，
+                    // 把真正有信息的触发 / 请求 / 失败记录顶掉。
                     bindAliases(query, names);
-                    TmdbLog.add(TmdbLog.STAGE_SKIP, query, "命中本地缓存，不请求 TMDB");
                     return;
                 }
             }
