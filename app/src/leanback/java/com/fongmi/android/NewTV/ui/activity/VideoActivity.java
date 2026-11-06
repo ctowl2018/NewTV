@@ -87,7 +87,6 @@ import com.fongmi.android.NewTV.ui.custom.FeatheredImageView;
 import com.fongmi.android.NewTV.ui.custom.VodInput;
 import com.fongmi.android.NewTV.ui.custom.CustomMovement;
 import com.fongmi.android.NewTV.ui.helper.ControlFocusEffect;
-import com.fongmi.android.NewTV.ui.helper.ToolbarHeader;
 import com.fongmi.android.NewTV.ui.sheet.PanelSheet;
 import com.fongmi.android.NewTV.ui.sheet.SheetList;
 import com.fongmi.android.NewTV.ui.sheet.TrackSheet;
@@ -165,7 +164,6 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     private final ActivityResultLauncher<Intent> mSubtitleLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> FileChooser.getUri(result, this::setSubtitleFile));
 
     private ActivityVideoBinding mBinding;
-    private ToolbarHeader mHeader;
     private VideoSheet mSheet;
     private PanelSheet mPanelSheet;
     private TrackSheet mTrackSheet;
@@ -382,9 +380,6 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     @Override
     protected void initView(Bundle savedInstanceState) {
         super.initView(savedInstanceState);
-        mHeader = ToolbarHeader.bind(this, mBinding.toolbar);
-        // 播放详情页属于需要顶部渐变遮罩的四个页面之一
-        mHeader.setScrimVisible(true);
         mFrameParams = mBinding.video.getLayoutParams();
         mClock = Clock.create(mBinding.widget.clock);
         mInput = VodInput.create(this, this);
@@ -417,11 +412,12 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mBinding.control.action.text.setOnClickListener(this::onTrack);
         mBinding.control.action.audio.setOnClickListener(this::onTrack);
         mBinding.control.action.video.setOnClickListener(this::onTrack);
-        // 片尾的方向与片头相反：片头 ↑ 加 / ↓ 减；片尾 ↑ 减 / ↓ 加（把「越靠近结尾」对应到向上）
-        mBinding.control.action.ending.setUpListener(this::onEndingSub);
+        // 片头 / 片尾统一用「下键」调节时长：两者按下键都让标记沿时间轴向前推进
+        // （片头 片头→片尾；片尾 片尾→片头）。上键不再参与调节，交还系统做焦点移动。
         mBinding.control.action.ending.setDownListener(this::onEndingAdd);
-        mBinding.control.action.opening.setUpListener(this::onOpeningAdd);
-        mBinding.control.action.opening.setDownListener(this::onOpeningSub);
+        mBinding.control.action.ending.setUpListener(this::onEndingSub);
+        mBinding.control.action.opening.setDownListener(this::onOpeningAdd);
+        mBinding.control.action.opening.setUpListener(this::onOpeningSub);
         mBinding.control.action.playPause.setOnClickListener(view -> onPlayPause());
         mBinding.control.action.panelBtn.setOnClickListener(view -> onControlPanel());
         // 弹幕：单击 = 当前播放的快捷开关，长按 = 打开「选择弹幕」浮层
@@ -516,18 +512,6 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         ControlFocusEffect.attach(mBinding.control.getRoot(), glow, scaleOnly);
         // 播放键的图标比其它按钮大一圈，光晕也要相应放大，边缘过渡才明显
         ControlFocusEffect.setHaloScale(mBinding.control.action.playPause, 1.45f);
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (mHeader != null) mHeader.onResume();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        if (mHeader != null) mHeader.onPause();
     }
 
     private void setRecyclerView() {
@@ -1432,9 +1416,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     private void enterFullscreen() {
         mFocus1 = getCurrentFocus();
-        // 全屏时隐藏顶部 logo 栏：整屏交给画面，返回键退出全屏后再恢复。
-        mBinding.toolbar.getRoot().setVisibility(View.GONE);
-        // 详情页背景图同属页面装饰，全屏播放时一并收起（正在渐入的话连动画一起掐掉）。
+        // 顶部已无品牌行，无需隐藏；背景图同属页面装饰，全屏播放时一并收起（正在渐入的话连动画一起掐掉）。
         mBinding.videoHero.animate().cancel();
         mBinding.videoHero.setVisibility(View.GONE);
         mBinding.video.requestFocus();
@@ -1449,7 +1431,6 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private void exitFullscreen() {
-        mBinding.toolbar.getRoot().setVisibility(View.VISIBLE);
         restoreDetailHero();
         mBinding.video.setForeground(ResUtil.getDrawable(R.drawable.selector_video));
         mBinding.video.setLayoutParams(mFrameParams);
@@ -1554,12 +1535,32 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         if (player().canSetOpening(position, duration)) setOpening(position);
     }
 
+    /**
+     * 片头下键：片头标记向片尾方向推进（+1s）。
+     *
+     * <p>基准对齐上游 FongMi/TV：未设置过时按 00:00 起算（{@code Math.max(0, opening) + 1000}），
+     * 而不是以当前播放位置为锚点。锚在播放位置时，可调区间会被压在「已播放过的那一段」里，
+     * 越不过当前位置；改为 00:00 起算后，微调范围覆盖整片时间轴。
+     * 上限仍取总时长，避免出现超过片长的无效值。
+     */
     private void onOpeningAdd() {
-        setOpening(Math.max(0, Math.max(0, mHistory.getOpening()) + 1000));
+        long base = mHistory == null ? 0 : Math.max(0, mHistory.getOpening());
+        long duration = player().getDuration();
+        long next = base + 1000;
+        setOpening(duration > 0 ? Math.min(next, duration) : next);
     }
 
+    /**
+     * 片头上键：片头标记向「更早」方向移动 1s（少跳一点片头）。
+     *
+     * <p>与片尾保持统一的方向语义：上下键移动时间轴上的标记点，下 = 更晚、上 = 更早。
+     * 基准同为 00:00，故退到 00:00 即止。
+     */
     private void onOpeningSub() {
-        setOpening(Math.max(0, Math.max(0, mHistory.getOpening()) - 1000));
+        long base = mHistory == null ? 0 : Math.max(0, mHistory.getOpening());
+        long duration = player().getDuration();
+        long next = Math.max(0, base - 1000);
+        setOpening(duration > 0 ? Math.min(next, duration) : next);
     }
 
     private boolean onOpeningReset() {
@@ -1579,15 +1580,41 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     private void onEnding() {
         long position = player().getPosition();
         long duration = player().getDuration();
-        if (player().canSetEnding(position, duration)) setEnding(duration - position);
+        if (player().canSetEnding(position, duration)) setEnding(position);
+        else Notify.show(R.string.play_ed_range);
     }
 
+    /**
+     * 片尾下键：片尾点向「更晚」方向移动 1s（少跳一点片尾）。
+     *
+     * <p>基准对齐上游 FongMi/TV：未设置过时以「总时长」为基准（等价上游把片尾存成「尾长 0」，
+     * 即片尾点落在结尾）。原来锚在「当前播放位置」，往下调一档就落到播放位置之后、
+     * 往上调一档就落到播放位置之前并立刻触发跳集，可调范围实际被锁在 00:00~已播放时间里。
+     * 改为从结尾起算后，上下键可把片尾点沿整片时间轴移动，且下键只往后挪，不会误跳。
+     */
     private void onEndingAdd() {
-        setEnding(Math.max(0, Math.max(0, mHistory.getEnding()) + 1000));
+        long duration = player().getDuration();
+        long base = mHistory == null ? 0 : mHistory.getEnding();
+        if (base <= 0) base = duration;
+        // 时长未知且尚未设定：忽略按键，避免写成 0 反而把片尾清掉。
+        if (base <= 0) return;
+        long next = base + 1000;
+        setEnding(duration > 0 ? Math.min(next, duration) : next);
     }
 
+    /**
+     * 片尾上键：片尾点向「更早」方向移动 1s（多跳一点片尾）。
+     *
+     * <p>基准同上（未设置时为总时长）：首次按下即把片尾点放在结尾前 1s，连续按可一路收到目标位置；
+     * 若收到当前播放位置之前，下一帧 {@code onTimeChanged} 会按既有跳转逻辑跳到结尾 / 下一集。
+     */
     private void onEndingSub() {
-        setEnding(Math.max(0, Math.max(0, mHistory.getEnding()) - 1000));
+        long duration = player().getDuration();
+        long base = mHistory == null ? 0 : mHistory.getEnding();
+        if (base <= 0) base = duration;
+        if (base <= 0) return;
+        long next = Math.max(0, base - 1000);
+        setEnding(duration > 0 ? Math.min(next, duration) : next);
     }
 
     private boolean onEndingReset() {
@@ -1601,6 +1628,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private String endingText(long ending) {
+        // ending 与 opening 同为「时间轴上的位置」：显示什么就跳到哪，不再做 duration − ending 的尾长换算。
         return ending <= 0 ? getString(R.string.play_ed) : Util.timeMs(ending);
     }
 
@@ -2391,7 +2419,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private View getFocus2() {
-        return mFocus2 == null || !mFocus2.isAttachedToWindow() || mFocus2.getVisibility() != View.VISIBLE || mFocus2 == mBinding.control.action.opening || mFocus2 == mBinding.control.action.ending ? mBinding.control.action.playPause : mFocus2;
+        return mFocus2 == null || !mFocus2.isAttachedToWindow() || mFocus2.getVisibility() != View.VISIBLE ? mBinding.control.action.playPause : mFocus2;
     }
 
     @Override
@@ -2399,6 +2427,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         int keyCode = event.getKeyCode();
         // 浮层内左右键：按键不锁死，但焦点必须留在浮层里（见 handleSheetHorizontalKey）。
         if (mSheet != null && mSheet.isShowing() && handleSheetHorizontalKey(event)) return true;
+        // 浮层内上下键：到边界后吃掉按键，避免焦点掉出弹层（字幕 / 音轨 / 弹幕列表末行）。
+        if (mSheet != null && mSheet.isShowing() && handleSheetVerticalKey(event)) return true;
         if (keyCode == KeyEvent.KEYCODE_MENU && KeyUtil.isActionDown(event)) mInput.cancelSeek();
         boolean discMenuShortcut = keyCode == KeyEvent.KEYCODE_MEDIA_TOP_MENU || keyCode == KeyEvent.KEYCODE_TV_CONTENTS_MENU;
         boolean discMenuNavigation = keyCode != KeyEvent.KEYCODE_MENU && isFullscreen() && !isControlVisible();
@@ -2427,6 +2457,26 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
      * </ul>
      * 之前对左右键一律 return true，导致「一排多个按钮」根本无法左右切换，这里改为只兜住越界。
      */
+    /**
+     * 浮层内的上下键：与左右键同一套边界策略。
+     *
+     * <p>字幕 / 音轨 / 弹幕列表用的是普通 RecyclerView，没有 {@code SheetList} 那层首尾保护；
+     * 焦点在最后一个条目或最后一个控件时再按下，系统焦点搜索会返回浮层外的视图，表现为「焦点丢了」。
+     * 这里只在「浮层内确实没有下一个可聚焦控件」时吃掉按键，正常换行仍然交给系统处理。
+     */
+    private boolean handleSheetVerticalKey(KeyEvent event) {
+        int keyCode = event.getKeyCode();
+        if (keyCode != KeyEvent.KEYCODE_DPAD_UP && keyCode != KeyEvent.KEYCODE_DPAD_DOWN) return false;
+        if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+        View focused = getCurrentFocus();
+        if (focused == null || !mSheet.contains(focused)) return false;
+        int direction = keyCode == KeyEvent.KEYCODE_DPAD_UP ? View.FOCUS_UP : View.FOCUS_DOWN;
+        View next = focused.focusSearch(direction);
+        if (next != null && next != focused && mSheet.contains(next)) return false;
+        // 浮层内没有下一个可聚焦控件：吃掉按键，焦点保持不动。
+        return true;
+    }
+
     private boolean handleSheetHorizontalKey(KeyEvent event) {
         int keyCode = event.getKeyCode();
         if (keyCode != KeyEvent.KEYCODE_DPAD_LEFT && keyCode != KeyEvent.KEYCODE_DPAD_RIGHT) return false;
@@ -2474,11 +2524,9 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     @Override
     public void onKeyUp() {
-        long position = player().getPosition();
-        long duration = player().getDuration();
-        if (player().canSetOpening(position, duration)) showControl(mBinding.control.action.opening);
-        else if (player().canSetEnding(position, duration)) showControl(mBinding.control.action.ending);
-        else showControl(getFocus2());
+        // 上键与其他方向键保持一致：只负责呼出控制条，焦点按统一的 getFocus2() 规则恢复。
+        // 不再因为「当前位置可设片头/片尾」就把默认焦点投到对应按钮上。
+        showControl(getFocus2());
     }
 
     @Override

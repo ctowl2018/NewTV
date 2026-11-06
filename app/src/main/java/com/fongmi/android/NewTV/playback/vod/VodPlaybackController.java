@@ -25,7 +25,6 @@ public class VodPlaybackController {
 
     private static final String PUSH_PREFIX = "push://";
     private static final String SEARCH_PREFIX = "msearch:";
-
     private final VodPlaybackHost host;
     private final VodDataSource dataSource;
     private final VodPlaybackState state;
@@ -34,6 +33,13 @@ public class VodPlaybackController {
     private final VodPreloader preloader;
     private History lastHistory;
     private SkipSegment activeSkip;
+    /**
+     * 片尾本集是否已触发过跳转。
+     *
+     * <p>当播放位置到达片尾点（{@code position >= ending}，ending 与片头 opening 同为位置）时跳到结尾 / 下一集并置位本标志；
+     * 位置回落到片尾点之前（{@link #onTimeChanged} 的 else 分支）自动复位，允许再次触发。
+     * 本工程播放内核未接管片尾裁剪（无 EndTrimMediaSource），此处 {@code onTimeChanged} 判定是唯一触发路径。
+     */
     private boolean manualEndingTriggered;
 
     public VodPlaybackController(VodPlaybackHost host, VodDataSource dataSource, VodPlaybackState state) {
@@ -396,7 +402,11 @@ public class VodPlaybackController {
         History history = currentHistory();
         host.setPlaybackEnding(history == null ? 0 : history.getEnding());
         historyPolicy.updateProgress(history, time, position, duration);
-        if (history != null && duration > 0 && history.getEnding() > 0 && history.getEnding() + position >= duration) {
+        // 片尾触发：已播放位置到达「片尾点」位置。ending 与片头 opening 同为「时间轴上的位置」，
+        // 显示什么就跳到哪，不再做 duration − ending 的尾长换算（那是之前口径混用、44:53 被算成 4:46 的根因）。
+        // manualEndingTriggered 确保每集 / 每次拖动只跳一次；位置回落到片尾点之前时
+        // （下面的 else 分支）自动复位，允许再次触发。
+        if (history != null && duration > 0 && history.getEnding() > 0 && position >= history.getEnding()) {
             skipEnding(history, duration, request);
             return;
         }
@@ -405,10 +415,11 @@ public class VodPlaybackController {
     }
 
     private void skipEnding(History history, long duration, VodPlayRequest request) {
-        if (!host.isPlaybackEndingManaged() && !manualEndingTriggered) {
-            boolean triggered = skipToEnd(history, duration);
-            if (state.getPlayingRequest() == request) manualEndingTriggered = triggered;
-        }
+        // isPlaybackEndingManaged() 在内核接管片尾裁剪时为 true（本工程恒为 false），
+        // 此时由内核自然结束事件负责跳集，这里不再干预，避免双重触发。
+        if (host.isPlaybackEndingManaged() || manualEndingTriggered) return;
+        boolean triggered = skipToEnd(history, duration);
+        if (state.getPlayingRequest() == request) manualEndingTriggered = triggered;
     }
 
     private void skipSegment(History history, long position, long duration, VodPlayRequest request) {
@@ -427,11 +438,14 @@ public class VodPlaybackController {
     }
 
     private boolean skipToEnd(History history, long duration) {
-        if (!state.hasEpisode()) return false;
-        boolean reversed = history != null && history.isRevPlay();
-        if (!state.getRelativeEpisode(reversed ? -1 : 1).isSelected()) {
-            nextEpisode(false);
-            return true;
+        // 有剧集列表时才考虑「跳下一集」；单集 / 电影没有剧集列表，继续往下走到 seek 结尾，
+        // 否则片尾永远不会被触发（这是「片尾设定不生效」的根因之一）。
+        if (state.hasEpisode()) {
+            boolean reversed = history != null && history.isRevPlay();
+            if (!state.getRelativeEpisode(reversed ? -1 : 1).isSelected()) {
+                nextEpisode(false);
+                return true;
+            }
         }
         if (duration <= 0) return false;
         host.seekPlayback(duration);
@@ -469,8 +483,12 @@ public class VodPlaybackController {
     }
 
     public void setEnding(long ending) {
-        if (state.getHistory() != null) state.getHistory().setEnding(ending);
-        clearSkipState();
+        History history = state.getHistory();
+        if (history != null) history.setEnding(ending);
+        // 重新判定：把 manualEndingTriggered 复位，下一帧按「当前位置是否已抵达片尾点」决定
+        // 立即跳（设定点恰在当前位置）还是等到播到片尾点再跳。不在这里现算位置 / 时长，
+        // 因为它们可能瞬时无效（切集、web 播放、尚未就绪），交由 onTimeChanged 统一判定。
+        manualEndingTriggered = false;
         host.setPlaybackEnding(ending);
     }
 

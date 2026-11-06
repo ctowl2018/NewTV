@@ -29,6 +29,7 @@
     <string name="pause">暂停</string>
     <string name="play_op">片头</string>
     <string name="play_ed">片尾</string>
+    <string name="play_ed_range">片尾只能在结尾附近设置，可用下键微调</string>
     <string name="play_exo">EXO</string>
     <string name="play_mpv">MPV</string>
     <string name="play_other">其它</string>

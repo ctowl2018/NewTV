@@ -13,7 +13,7 @@ import com.fongmi.android.NewTV.ui.dialog.LocalConnectDialog;
 import com.fongmi.android.NewTV.utils.Clock;
 
 /**
- * 收藏 / 搜索 / 播放详情等页面的顶部品牌行绑定器。
+ * 收藏 / 搜索等页面的顶部品牌行绑定器。
  *
  * <p>与首页 {@link HomeHeader} 的样式一致，但不含站点名称与导航栏胶囊：
  * logo（站点选择，慢闪提示）、搜索、收藏、连接、设置、时钟。

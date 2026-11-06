@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   顶部品牌行（与首页标题栏一致，但不含站点名称、不含导航栏胶囊）。
-  用于搜索页 / 搜索详情页 / 播放详情页 / 收藏页：BrandLogoView + 搜索 / 收藏 / 连接 / 设置 + 时钟。
+  用于搜索页 / 搜索详情页 / 收藏页：BrandLogoView + 搜索 / 收藏 / 连接 / 设置 + 时钟。
+  （播放详情页已改为无页头，不引用本布局。）
   品牌组合与 view_home_header 复用同一个 BrandLogoView（站点 logo + 「影视 Videos」字标，锁定不可被站点数据改写）；
   本页头里品牌仅作静态展示，不触发站点菜单、不做慢闪焦点特效，故容器不可聚焦。
 
-  顶部渐变遮罩：默认不启用（搜索页 / 搜索详情页），播放详情页 / 收藏页由
+  顶部渐变遮罩：默认不启用（搜索页 / 搜索详情页），收藏页由
   ToolbarHeader.setScrimVisible(true) 把 shape_top_scrim 设为根布局背景来打开。
   用根布局 background 而不是独立 match_parent 子 View，可避免 wrap_content 页头被撑到整屏，
   同时保证遮罩高度 = 页头高度、下边界与导航栏下边界精确齐平；

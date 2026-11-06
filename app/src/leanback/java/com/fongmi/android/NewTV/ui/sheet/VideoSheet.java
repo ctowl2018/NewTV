@@ -16,7 +16,7 @@ import com.fongmi.android.NewTV.utils.ResUtil;
  * 底边贴在按钮上沿上方 {@link #ANCHOR_GAP_DP} dp。右侧越界时整体左移贴边，绝不伸出画面。
  * 位置由「按钮与画面的窗口坐标差 + 浮层自身宽高」实时算出，与分辨率无关。
  *
- * <p><b>动效</b>（与 webtv 的选集菜单一致）：
+ * <p><b>动效</b>（选集菜单专用）：
  * 展开 scaleY 0→1（pivotY 固定在底边，视觉上是从按钮上方「长出来」）+ translationY 6dp→0 + alpha 0→1，
  * 180ms、emphasized-decelerate；收起按对称反向，140ms、emphasized-accelerate，动画结束才 GONE。
  *
@@ -201,6 +201,19 @@ public final class VideoSheet {
      */
     public boolean requestFocusInside() {
         if (!showing) return false;
+        // 容器本身通常不可聚焦，直接 requestFocus 会返回 false；这里改为找第一个可聚焦后代。
+        if (focusFirst(binding.sheetContent)) return true;
         return binding.sheetContent.requestFocus();
+    }
+
+    private boolean focusFirst(View view) {
+        if (view == null || view.getVisibility() != View.VISIBLE) return false;
+        if (view.isFocusable() && view.requestFocus()) return true;
+        if (view instanceof ViewGroup group) {
+            for (int i = 0; i < group.getChildCount(); i++) {
+                if (focusFirst(group.getChildAt(i))) return true;
+            }
+        }
+        return false;
     }
 }

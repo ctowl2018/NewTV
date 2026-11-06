@@ -8,9 +8,11 @@
      · 这里的 alpha 只是「最终值」，实际显示由 VideoActivity 在内容首帧之后从 0 渐入到该值；
        两处必须保持一致，改动时同步 VideoActivity.DETAIL_HERO_ALPHA
      · 只有「存在关联背景图」的影片才显示，不加载片名 logo
-  L1 内容层  LinearLayoutCompat（页头 + 播放器 + 详情 + 选集列表）
+  L1 内容层  LinearLayoutCompat（播放器 + 详情 + 选集列表）
      · 永远绘制在 L0 之上：播放器、文字、按钮、浮层都不会被背景图压住
      · 本层不再铺不透明底色，否则会把 L0 完全盖住；底色统一由根布局提供
+     · 本页不设顶部品牌行 / 搜索 / 收藏 / 连接 / 设置 / 时钟，也没有顶部渐变遮罩：
+       顶部整条区域交给画面，避免遮挡 16:9 影片与全屏切换时的视觉跳动
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -35,10 +37,6 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
-
-        <include
-            android:id="@+id/toolbar"
-            layout="@layout/view_toolbar" />
 
         <com.fongmi.android.NewTV.ui.custom.ProgressLayout
             android:id="@+id/progressLayout"
