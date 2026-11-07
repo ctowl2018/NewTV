@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  点播控制条。整体贴屏幕下沿（FrameLayout 里 layout_gravity=bottom），面板底边固定，
+  所以「内容离底部多远」完全由 paddingBottom 决定。
+
+  paddingBottom 这里的 48dp 只是设计基准：VideoActivity.applyControlBottomInset() 会在
+  初始化时按 CONTROL_BOTTOM_LIFT_PX 再向下收 100px（留白下限 8dp），让进度条与按钮行
+  贴近屏幕下沿、减少底部纯黑。两者必须同步修改，否则代码里的基准值会对不上。
+-->
 <androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"

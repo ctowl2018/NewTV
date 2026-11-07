@@ -1,14 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.textview.MaterialTextView xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+  「选择弹幕」列表条目：弹幕源名称（单行）。
+
+  原来是 MaterialTextView + ellipsize="marquee"：Android 原生跑马灯只在
+  selected / focused 时才动，且到头会瞬移回起点，TV 上看着像被抽走一下。
+  换成 PingPongMarqueeTextView 后由 DanmakuAdapter 按焦点放行：只有当前选中（焦点）行
+  在名称溢出时横向左右往复滚动，其余行静态显示开头，短名称也保持静态。
+  文字颜色仍取 getCurrentTextColor()，选中态标色不受影响。
+  setSelected() 继续保留（表达业务态「当前生效的弹幕源」，与滚动互不干扰）。
+-->
+<com.fongmi.android.NewTV.ui.custom.PingPongMarqueeTextView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/text"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@drawable/selector_sheet_chip_round"
-    android:ellipsize="marquee"
     android:focusable="true"
     android:focusableInTouchMode="true"
-    android:singleLine="true"
     android:textColor="@color/text"
     android:textSize="15sp"
     tools:text="愛奇異彈幕" />

@@ -24,7 +24,6 @@ import com.fongmi.android.NewTV.ui.activity.PlaybackActivity;
 import com.fongmi.android.NewTV.ui.adapter.DanmakuAdapter;
 import com.fongmi.android.NewTV.ui.adapter.TrackAdapter;
 import com.fongmi.android.NewTV.ui.dialog.AudioSettingDialog;
-import com.fongmi.android.NewTV.ui.dialog.DanmakuSearchDialog;
 import com.fongmi.android.NewTV.ui.dialog.DanmakuSettingDialog;
 import com.fongmi.android.NewTV.ui.dialog.PlaybackContentDialog;
 import com.fongmi.android.NewTV.ui.dialog.SubtitleSearchDialog;
@@ -62,13 +61,16 @@ public final class TrackSheet {
     private final TrackNameProvider provider;
     private final Runnable hide;
     private final IntConsumer chooseFile;
+    /** 放大镜（弹幕模式）：切到同一 VideoSheet 里的「弹幕搜索」页。 */
+    private final Runnable openDanmakuSearch;
     private PlayerManager player;
     private int type = C.TRACK_TYPE_TEXT;
 
-    public TrackSheet(FragmentActivity activity, Runnable hide, IntConsumer chooseFile) {
+    public TrackSheet(FragmentActivity activity, Runnable hide, IntConsumer chooseFile, Runnable openDanmakuSearch) {
         this.activity = activity;
         this.hide = hide;
         this.chooseFile = chooseFile;
+        this.openDanmakuSearch = openDanmakuSearch;
         this.binding = ViewSheetTrackBinding.inflate(activity.getLayoutInflater());
         this.provider = new DefaultTrackNameProvider(App.get().getResources());
         this.binding.sheetTrackRecycler.setItemAnimator(null);
@@ -178,9 +180,14 @@ public final class TrackSheet {
 
     private void bindActions(boolean danmaku) {
         binding.sheetTrackSearch.setOnClickListener(view -> {
-            hide.run();
-            if (danmaku) DanmakuSearchDialog.create().autoSearch().show(activity);
-            else SubtitleSearchDialog.create().show(activity);
+            if (danmaku) {
+                // 弹幕搜索现在与「选择弹幕」共用同一个 VideoSheet 宿主：直接换内容页，
+                // 不收起浮层、也不再打开 BottomSheetDialog（那套窗体的背景会被 Behavior 覆盖）。
+                openDanmakuSearch.run();
+            } else {
+                hide.run();
+                SubtitleSearchDialog.create().show(activity);
+            }
         });
         binding.sheetTrackChoose.setOnClickListener(view -> {
             hide.run();

@@ -78,6 +78,20 @@ public class DanmakuSetting {
         Prefers.put("danmaku_spider_first", spiderFirst);
     }
 
+    /**
+     * 进度条上的弹幕热力图开关，默认开启。
+     *
+     * <p>关掉后只是不画密度条（也不再为它额外占高度），弹幕本身照常加载与显示；
+     * 播放页每次 onResume 都会重新读取，改完设置回到播放页立即生效。
+     */
+    public static boolean isHeatmap() {
+        return Prefers.getBoolean("danmaku_heatmap", true);
+    }
+
+    public static void putHeatmap(boolean heatmap) {
+        Prefers.put("danmaku_heatmap", heatmap);
+    }
+
     /** 弹幕时间偏移，毫秒。持久化后换集不再归零。 */
     public static long getTimeOffsetMs() {
         return Math.clamp(Prefers.getLong("danmaku_offset"), -MAX_OFFSET_MS, MAX_OFFSET_MS);

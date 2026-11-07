@@ -4,17 +4,22 @@ import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.Shader;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
 import android.view.animation.DecelerateInterpolator;
 
+import androidx.annotation.Nullable;
 import androidx.media3.ui.DefaultTimeBar;
 import androidx.media3.ui.TimeBar;
 
 import com.fongmi.android.NewTV.Constant;
+import com.fongmi.android.NewTV.ui.danmaku.DanmakuHeat;
 
 /**
  * 播放进度条：按键快进/快退 + 聚焦态的「条身加粗发光」与「圆形滑块放大」。
@@ -43,6 +48,13 @@ import com.fongmi.android.NewTV.Constant;
  * 从 {@code scrubberEnabledSize}（12dp）切成更大的 {@code scrubberDraggedSize}（16dp）再画一个，
  * 半径 8dp 比自绘的 7.6dp 还大，露在外面就是「聚焦后出现两个滑块」。所以构造时先把父类滑块染成
  * 全透明，滑块（含常态尺寸）一律由本类绘制，任何状态下都只有一个，聚焦只是把它平滑放大。
+ *
+ * <p><b>弹幕热力图</b>：进度条上方叠一条密度曲线（参照行情软件的「分时图」：一条折线 + 线下渐变填充），
+ * 数据来自 {@link DanmakuHeat}（每 5 秒一个统计桶）。曲线与条身共用同一段
+ * {@code [left, right]} 与同一个 {@code duration} 分母，所以任意位置的起伏和滑块严格对齐；
+ * 线色与填充色由「该处弹幕密度」决定，密集区段更高更暖，整体不透明度 35%。
+ * 曲线只占条身上方原有的留白（约 10.5dp）、不改变视图高度，加载前后进度条不会位移；
+ * 没有数据时整条不画。
  */
 public final class LeanbackTimeBar extends DefaultTimeBar implements TimeBar.OnScrubListener {
 
@@ -64,6 +76,36 @@ public final class LeanbackTimeBar extends DefaultTimeBar implements TimeBar.OnS
     /** 滑块外圈柔光相对滑块半径的额外扩散量（{@link #drawScrubber} 使用）。 */
     private static final float SCRUBBER_HALO_DP = 3.5f;
     private static final long EMPHASIS_DURATION = 160L;
+
+    /**
+     * 热力曲线最大高度：**只吃条身上方原有的留白，不改变视图高度**。
+     *
+     * <p>竖向能用的空间是算出来的，不是随便取的：父类 {@code DefaultTimeBar} 的
+     * {@code touch_target_height} 默认 26dp、{@code bar_height} 默认 4dp、gravity 为居中，
+     * 所以条身占 {@code 11dp ~ 15dp}，条身上沿在 11dp 处；再扣掉与条身的间隙和顶部给
+     * 1.5dp 描边留的安全量，可用高度上限约 10.5dp。这里取 11dp，实际由
+     * {@code drawHeat} 的 {@code min(HEAT_HEIGHT_DP, bottom - paddingTop)} 夹到上限。
+     *
+     * <p>为什么宁可夹高度也不把视图改高：早前给视图追加过高度，结果整个进度条行被撑高、
+     * 位置随之上移（控制面板贴底，行高增加多少，行内元素就上移一半）。改为只在既有留白里画，
+     * 加载热力图前后条身与时间文字的位置完全不变。
+     */
+    private static final float HEAT_HEIGHT_DP = 11f;
+    /** 曲线与条身之间的间隙：压缩到 0.5dp，把条身上方的留白尽量让给曲线。 */
+    private static final float HEAT_GAP_DP = 0.5f;
+    /** 采样间距：约 2dp 一个采样点，600dp 宽约 300 点，足够画出平滑曲线又不至于每帧过重。 */
+    private static final float HEAT_SAMPLE_DP = 2f;
+    /** 曲线线宽。 */
+    private static final float HEAT_LINE_DP = 1.5f;
+    /** 整体不透明度：35%，填充与曲线一起缩放。 */
+    private static final float HEAT_ALPHA = 0.35f;
+    /** 曲线在「零弹幕」处的保底不透明度（缩放前）：太亮会变成一条横线，太淡则曲线断掉。 */
+    private static final float HEAT_LINE_ALPHA_MIN = 90f;
+    private static final float HEAT_LINE_ALPHA_MAX = 255f;
+    /** 热力配色：冷（稀疏）→ 紫（中等）→ 暖（密集）。 */
+    private static final int HEAT_COLOR_LOW = 0xFF4C8DFF;
+    private static final int HEAT_COLOR_MID = 0xFFB45BFF;
+    private static final int HEAT_COLOR_HIGH = 0xFFFF4D3D;
 
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rect = new RectF();
@@ -91,6 +133,18 @@ public final class LeanbackTimeBar extends DefaultTimeBar implements TimeBar.OnS
     /** 0 = 常态，1 = 完全聚焦，中间是过渡帧。 */
     private float emphasis;
     private ValueAnimator animator;
+
+    /** 当前这一集的弹幕分布；null = 不画热力图（无数据 / 已在设置里关闭）。 */
+    private DanmakuHeat.Snapshot heatmap;
+    /** 曲线与填充区域（按数据 / 宽度 / 高度缓存，播放位置变化不重建）。 */
+    private final Path heatArea = new Path();
+    private final Path heatLine = new Path();
+    private DanmakuHeat.Snapshot heatCached;
+    private long heatCachedDuration = -1;
+    private float heatCachedWidth = -1f;
+    private float heatCachedHeight = -1f;
+    private Shader heatFillShader;
+    private Shader heatLineShader;
 
     public LeanbackTimeBar(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -153,6 +207,18 @@ public final class LeanbackTimeBar extends DefaultTimeBar implements TimeBar.OnS
     public void setBufferedPosition(long bufferedPosition) {
         this.bufferedPosition = bufferedPosition;
         super.setBufferedPosition(bufferedPosition);
+        invalidate();
+    }
+
+    /**
+     * 设置弹幕热力数据；传 null 关闭（无弹幕 / 弹幕已关 / 设置里关掉了热力图）。
+     *
+     * <p>热力曲线只画在条身上方原有的留白里，视图高度恒定，所以这里不需要
+     * {@code requestLayout()}——加载前后进度条位置不会发生任何位移。
+     */
+    public void setHeatmap(@Nullable DanmakuHeat.Snapshot snapshot) {
+        if (heatmap == snapshot) return;
+        heatmap = snapshot;
         invalidate();
     }
 
@@ -250,6 +316,9 @@ public final class LeanbackTimeBar extends DefaultTimeBar implements TimeBar.OnS
             drawBar(canvas, left, bufferedX, centerY, half, bufferedColor);
             drawBar(canvas, left, playheadX, centerY, half, playedColor);
         }
+        // 弹幕热力图压在光晕之上、滑块之下：颜色不被聚焦光晕染橙，滑块依旧压在最前面。
+        // 基线锚在「未聚焦」的条身上沿，聚焦加粗时柱子不跟着上下跳。
+        drawHeat(canvas, left, right, centerY - dp(BAR_HEIGHT_DP) / 2f - dp(HEAT_GAP_DP));
         // 滑块中心再内缩一个「最大滑块半径」：0% / 100% 时圆点（含聚焦放大）不会越出进度条容器。
         // 最大半径取聚焦后的 7.6dp 而不是当前半径，避免聚焦动画过程中滑块中心左右漂移。
         float maxRadius = dp(SCRUBBER_RADIUS_DP + SCRUBBER_EXTRA_DP);
@@ -285,6 +354,153 @@ public final class LeanbackTimeBar extends DefaultTimeBar implements TimeBar.OnS
         paint.setAlpha(255);
         rect.set(left, centerY - half, right, centerY + half);
         canvas.drawRoundRect(rect, half, half, paint);
+    }
+
+    /**
+     * 画弹幕热力曲线（分时图式：一条折线 + 线下渐变填充）。
+     *
+     * <p>横轴与条身共用 {@code [left, right]}、纵轴分母共用 {@link #duration}：
+     * 第 i 个采样点覆盖 {@code [i, i+1) × duration / columns}，采样点的正下方
+     * 就是该时段的进度位置，滑块走到对应时刻时正好落在曲线那一段上。
+     *
+     * <p>竖向空间不够（父级把高度写死）时按剩余空间压缩曲线高度，不裁切也不越界。
+     */
+    private void drawHeat(Canvas canvas, float left, float right, float bottom) {
+        if (heatmap == null || duration <= 0) return;
+        float width = right - left;
+        if (width <= 0) return;
+        float maxHeight = Math.min(dp(HEAT_HEIGHT_DP), bottom - getPaddingTop());
+        if (maxHeight <= dp(1)) return;
+        if (!ensureHeat(left, right, bottom, maxHeight)) return;
+        // 线下面积：横向渐变，颜色跟着密度走，安静区段几乎透明
+        paint.setStyle(Paint.Style.FILL);
+        paint.setShader(heatFillShader);
+        canvas.drawPath(heatArea, paint);
+        // 曲线：同一条渐变、更实的透明度，像分时图的价格线
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(dp(HEAT_LINE_DP));
+        paint.setStrokeJoin(Paint.Join.ROUND);
+        paint.setStrokeCap(Paint.Cap.ROUND);
+        paint.setShader(heatLineShader);
+        canvas.drawPath(heatLine, paint);
+        paint.setShader(null);
+        paint.setStrokeWidth(1f);
+    }
+
+    /**
+     * 按当前数据 / 宽度 / 高度重建路径与渐变（只在真正变化时重建，播放位置推进不触发）。
+     *
+     * @return 是否有可绘制的内容
+     */
+    private boolean ensureHeat(float left, float right, float bottom, float maxHeight) {
+        DanmakuHeat.Snapshot heat = heatmap;
+        float width = right - left;
+        boolean cached = heatCached == heat
+                && heatCachedDuration == duration
+                && Math.abs(heatCachedWidth - width) < 0.5f
+                && Math.abs(heatCachedHeight - maxHeight) < 0.5f;
+        if (!cached) {
+            buildHeat(heat, width, bottom, maxHeight, left);
+            heatCached = heat;
+            heatCachedDuration = duration;
+            heatCachedWidth = width;
+            heatCachedHeight = maxHeight;
+        }
+        return heatFillShader != null && heatLineShader != null;
+    }
+
+    private void buildHeat(DanmakuHeat.Snapshot heat, float width, float bottom, float maxHeight, float left) {
+        heatArea.reset();
+        heatLine.reset();
+        heatFillShader = null;
+        heatLineShader = null;
+        int columns = Math.max(2, Math.round(width / dp(HEAT_SAMPLE_DP)));
+        float[] values = new float[columns];
+        boolean any = false;
+        for (int i = 0; i < columns; i++) {
+            long start = duration * i / columns;
+            long end = duration * (i + 1) / columns;
+            if (end <= start) end = start + 1;
+            int from = (int) (start / heat.bucketMs);
+            if (from >= heat.counts.length) break; // 数据比视频短，后面没有弹幕
+            int to = (int) ((end - 1) / heat.bucketMs);
+            if (to < from) to = from;
+            if (to >= heat.counts.length) to = heat.counts.length - 1;
+            int count = 0;
+            for (int bucket = from; bucket <= to; bucket++) count += heat.counts[bucket];
+            if (count <= 0) continue;
+            // 一列可能合并多个 5 秒桶（长视频）：用「每 5 秒平均条数」和全片分位比较，
+            // 否则列越宽、计数越大，起伏会被宽度而不是密度决定。
+            values[i] = heat.intensity(count / (float) (to - from + 1));
+            any = true;
+        }
+        if (!any) return;
+        // 两轮 1-2-1 平滑：去掉 5 秒桶粒度带来的锯齿，曲线才像分时图而不是心电图。
+        smooth(values);
+        float step = width / columns;
+        heatArea.moveTo(left, bottom);
+        for (int i = 0; i <= columns; i++) {
+            float value = values[Math.min(i, columns - 1)];
+            float x = left + step * i;
+            float y = bottom - maxHeight * value;
+            heatArea.lineTo(x, y);
+            if (i == 0) heatLine.moveTo(x, y);
+            else heatLine.lineTo(x, y);
+        }
+        heatArea.lineTo(left + width, bottom);
+        heatArea.close();
+        heatFillShader = heatShader(values, columns, left, left + width, true);
+        heatLineShader = heatShader(values, columns, left, left + width, false);
+    }
+
+    /**
+     * 横向渐变：每隔一小段取一次密度，颜色按「线性密度」（强度的平方）插值，
+     * 这样开方只影响高度、不会把色阶拉平 —— 只有真正密集的区段才烧到红。
+     */
+    private Shader heatShader(float[] values, int columns, float left, float right, boolean fill) {
+        int stops = Math.max(8, Math.min(64, columns / 4));
+        int[] colors = new int[stops + 1];
+        float[] positions = new float[stops + 1];
+        for (int i = 0; i <= stops; i++) {
+            float position = i / (float) stops;
+            int index = Math.min(columns - 1, (int) (position * columns));
+            float intensity = values[index];
+            float linear = intensity * intensity;
+            int rgb = heatRgb(linear);
+            float base = fill ? 255f * intensity : HEAT_LINE_ALPHA_MIN + (HEAT_LINE_ALPHA_MAX - HEAT_LINE_ALPHA_MIN) * intensity;
+            int alpha = Math.round(base * HEAT_ALPHA);
+            colors[i] = Color.argb(alpha, Color.red(rgb), Color.green(rgb), Color.blue(rgb));
+            positions[i] = position;
+        }
+        return new LinearGradient(left, 0f, right, 0f, colors, positions, Shader.TileMode.CLAMP);
+    }
+
+    /** 1-2-1 平滑，原地修改；首尾保持不动，曲线两端不会塌陷。 */
+    private static void smooth(float[] values) {
+        if (values.length < 3) return;
+        float[] copy = new float[values.length];
+        for (int pass = 0; pass < 2; pass++) {
+            System.arraycopy(values, 0, copy, 0, values.length);
+            for (int i = 1; i < values.length - 1; i++) {
+                values[i] = copy[i - 1] * 0.25f + copy[i] * 0.5f + copy[i + 1] * 0.25f;
+            }
+        }
+    }
+
+    /** 线性密度 → 颜色：0 冷蓝、0.5 紫、1 暖红。 */
+    private static int heatRgb(float density) {
+        float value = Math.max(0f, Math.min(1f, density));
+        return value <= 0.5f
+                ? blend(HEAT_COLOR_LOW, HEAT_COLOR_MID, value / 0.5f)
+                : blend(HEAT_COLOR_MID, HEAT_COLOR_HIGH, (value - 0.5f) / 0.5f);
+    }
+
+    private static int blend(int from, int to, float ratio) {
+        float value = Math.max(0f, Math.min(1f, ratio));
+        int red = (int) (Color.red(from) + (Color.red(to) - Color.red(from)) * value);
+        int green = (int) (Color.green(from) + (Color.green(to) - Color.green(from)) * value);
+        int blue = (int) (Color.blue(from) + (Color.blue(to) - Color.blue(from)) * value);
+        return Color.rgb(red, green, blue);
     }
 
     /** 圆形滑块：外圈一层柔光 + 实心圆点，颜色与控制条播放键同为品牌橙。 */

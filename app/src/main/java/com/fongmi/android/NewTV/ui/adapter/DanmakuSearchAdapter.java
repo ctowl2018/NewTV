@@ -10,6 +10,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.fongmi.android.NewTV.bean.Danmaku;
 import com.fongmi.android.NewTV.bean.DanmakuTitle;
 import com.fongmi.android.NewTV.databinding.AdapterDanmakuSearchBinding;
+import com.fongmi.android.NewTV.ui.custom.PingPongMarqueeTextView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,6 +56,8 @@ public class DanmakuSearchAdapter extends RecyclerView.Adapter<DanmakuSearchAdap
         String secondary = meta.getSecondary();
         holder.binding.secondary.setText(secondary);
         holder.binding.secondary.setVisibility(secondary.isEmpty() ? View.GONE : View.VISIBLE);
+        // 复用条目时按当前焦点复位：只有焦点所在行滚，别把上一行的动画带过来。
+        holder.setMarquee(holder.itemView.isFocused());
     }
 
     public class ViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
@@ -65,6 +68,14 @@ public class DanmakuSearchAdapter extends RecyclerView.Adapter<DanmakuSearchAdap
             super(binding.getRoot());
             this.binding = binding;
             itemView.setOnClickListener(this);
+            // 搜索结果没有「已选中」的业务态，TV 上的「当前选中行」就是焦点行。
+            itemView.setOnFocusChangeListener((view, hasFocus) -> setMarquee(hasFocus));
+        }
+
+        /** 用 View 作静态类型再判：mobile 的条目布局是普通 TextView，会自然跳过。 */
+        private void setMarquee(boolean running) {
+            View text = binding.primary;
+            if (text instanceof PingPongMarqueeTextView marquee) marquee.setMarqueeRunning(running);
         }
 
         @Override

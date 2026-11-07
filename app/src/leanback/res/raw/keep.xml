@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  release 构建开启了 shrinkResources = true。下面这些资源主要靠运行时
+  Resources.getIdentifier("名字", "类型", pkg) 查找（见 BaseBottomSheetDialog /
+  BaseSideSheetDialog），静态引用链很弱：Animation.PlaybackSideSheet 虽在 styles.xml 中定义，
+  但 R 里的符号名是 Animation_PlaybackSideSheet，压缩器有可能把它和通过字符串查到的
+  shape_video_sheet_bottom 一并当作「未使用」删掉，正式包里就只剩一块不透明底板。
+
+  这里显式 keep，保证 debug / release 的半透明玻璃窗体与淡入淡出特效一致。
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/shape_video_sheet_bottom,@style/Animation.PlaybackSideSheet,@anim/playback_sheet_in,@anim/playback_sheet_out" />

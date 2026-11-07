@@ -85,6 +85,33 @@ public final class VideoSheet {
     }
 
     /**
+     * 同一宿主内换一页内容（「选择弹幕」→「弹幕搜索」）：不收起、不重播展开动画、
+     * 不重跑 {@code onShow / onDismiss}，只替换内容并重算尺寸，最后把焦点交给新页。
+     *
+     * <p>锚点沿用当前页按钮，因此焦点锁、控制条粘性高亮都无需重设；视觉上是同一块
+     * 玻璃里翻了一页，而不是「旧窗关掉、新窗弹出」。两帧等待与 {@link #show} 同理：
+     * 第一帧拿真实坐标，第二帧才能读到新内容的高度做垂直钳制与聚焦。
+     */
+    public void replace(View content, int width, Runnable onShown) {
+        if (!showing || anchor == null || content == null) {
+            show(anchor, content, width, onShown);
+            return;
+        }
+        View root = binding.sheetRoot;
+        binding.sheetContent.removeAllViews();
+        binding.sheetContent.addView(content, contentParams(content));
+        root.post(() -> {
+            if (!showing) return;
+            layout(anchor, width);
+            root.post(() -> {
+                if (!showing) return;
+                clampVertical();
+                if (onShown != null) onShown.run();
+            });
+        });
+    }
+
+    /**
      * 内容视图的布局参数：宽度统一铺满，高度保留内容自己声明的那一份。
      *
      * <p>选集 / 倍速是按整数行把高度回写到列表根视图上的，如果这里一律用

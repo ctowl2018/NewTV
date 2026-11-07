@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  弹幕搜索弹窗。
+  弹幕搜索 —— BottomSheet 形态（TV 已停用，仅保留给 main 源集的 DanmakuSearchDialog 编译用）。
 
-  视觉与交互对齐「选择弹幕」浮层（VideoSheet）：
-    · 表面即浮层那套「60% 深色玻璃 + 14dp 圆角 + 1dp 描边」（由 BaseBottomSheetDialog 统一施加，
-      这里不再自绘背景）；展开 / 收起动效同样复用 Animation_PlaybackSideSheet。
-    · 标题 15sp 纯白、右侧 36dp 圆形动作图标（背景 selector_sheet_chip_round），与浮层头部同规格。
-    · 结果条目 15sp 主行 + 12sp 副行，焦点框沿用浮层的白色内缩描边。
+  【现状】TV 的弹幕搜索已改为 VideoSheet 浮层，见 view_sheet_danmaku_search.xml +
+  DanmakuSearchSheet：与「选择弹幕」TrackSheet 共用同一块玻璃、同一套动效与焦点锁。
+  原因是 BottomSheet 的 design_bottom_sheet 会被 BottomSheetBehavior.onLayoutChild() 在每次
+  布局时用不透明 MaterialShapeDrawable 改写背景，window 透明 / dim / 内容 padding 都碰不到
+  中间那一层，所以这条路线拿不到 VideoSheet 的半透明效果。
+
+  本布局仍必须存在：main 源集的 DanmakuSearchDialog 引用 DialogDanmakuSearchBinding，
+  leanback 构建需要同名布局（mobile 源集另有自己的一份）。TV 上不会再创建这个 Dialog。
+
+  保留已调整好的间距：根布局自带 12dp 四周内边距（BottomSheet 没有 VideoSheet 那层容器），
+  叠加 PlaybackSheetTitleRow 后标题左 24dp、齿轮右 16dp，与浮层观感一致。
 
   结构：标题行 → 搜索行 → 类型筛选 → 来源筛选 → 分隔线 → 结果。
   两行筛选各自是一行可横向滚动的胶囊；当前结果里只有一个可选值时会整行隐藏（没有可筛的东西）。
@@ -17,7 +23,10 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingBottom="10dp">
+    android:paddingStart="12dp"
+    android:paddingTop="12dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="12dp">
 
     <!-- 标题行：与「选择弹幕」浮层同一套标题规范（style 见 values/styles.xml），
          标题 + 结果计数 + 弹幕接口设置 -->
@@ -47,12 +56,13 @@
             android:id="@+id/setting"
             android:layout_width="36dp"
             android:layout_height="36dp"
+            android:layout_marginStart="4dp"
             android:background="@drawable/selector_sheet_chip_round"
             android:contentDescription="@string/dialog_action_search_settings"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:padding="7dp"
-            android:src="@drawable/ic_action_setting" />
+            android:src="@drawable/ic_danmaku_setting" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
 

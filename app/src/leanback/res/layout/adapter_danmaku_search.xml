@@ -5,9 +5,12 @@
   接口返回的原始标题是一条 60 字左右的复合串
   （「剧名(年份)【类型】from 数据源 - 【平台】 集数 分集标题」），直接铺一行只能靠跑马灯来回滚，
   根本读不出「这是第几集、来自哪个平台」。这里拆成：
-    主行：剧名 · 集数 分集标题     （白色 15sp，与浮层条目同字号）
-    副行：年份 · 类型 · 平台       （50% 白 12sp）
-  一律 ellipsize=end，不再跑马灯：结果列表要的是「扫一眼就能比较」，而不是逐条等它滚完。
+    主行：剧名 · 集数 分集标题     （白色 15sp，溢出时横向跑马灯）
+    副行：年份 · 类型 · 平台       （50% 白 12sp，短，超出直接截断）
+  主行改用 PingPongMarqueeTextView：由 DanmakuSearchAdapter 只放行「当前选中（焦点）行」，
+  且仅在文字宽超过可见宽度时启动，左右往复、两端自然掉头；其余行与短标题都保持静态。
+  副行仍是 ellipsize=end（信息量低，不值得让它滚）。
+  浮层加宽后大多数剧名能完整显示，真正超长的结果才会滚。
 -->
 <androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
@@ -20,12 +23,10 @@
     android:paddingHorizontal="12dp"
     android:paddingVertical="9dp">
 
-    <com.google.android.material.textview.MaterialTextView
+    <com.fongmi.android.NewTV.ui.custom.PingPongMarqueeTextView
         android:id="@+id/primary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:ellipsize="end"
-        android:singleLine="true"
         android:textColor="@color/white"
         android:textSize="15sp"
         tools:text="小城良方 · 第1集 亮仔变老铁" />

@@ -60,6 +60,7 @@ import com.fongmi.android.NewTV.databinding.ActivityVideoBinding;
 import com.fongmi.android.NewTV.db.AppDatabase;
 import com.fongmi.android.NewTV.event.RefreshEvent;
 import com.fongmi.android.NewTV.impl.CustomTarget;
+import com.fongmi.android.NewTV.impl.DanmakuListener;
 import com.fongmi.android.NewTV.model.VideoViewModel;
 import com.fongmi.android.NewTV.playback.ExternalPlayback;
 import com.fongmi.android.NewTV.playback.PlaybackAction;
@@ -84,9 +85,12 @@ import com.fongmi.android.NewTV.ui.adapter.PartAdapter;
 import com.fongmi.android.NewTV.ui.adapter.QualityAdapter;
 import com.fongmi.android.NewTV.ui.adapter.QuickAdapter;
 import com.fongmi.android.NewTV.ui.custom.FeatheredImageView;
+import com.fongmi.android.NewTV.ui.custom.LeanbackTimeBar;
 import com.fongmi.android.NewTV.ui.custom.VodInput;
 import com.fongmi.android.NewTV.ui.custom.CustomMovement;
+import com.fongmi.android.NewTV.ui.danmaku.DanmakuHeat;
 import com.fongmi.android.NewTV.ui.helper.ControlFocusEffect;
+import com.fongmi.android.NewTV.ui.sheet.DanmakuSearchSheet;
 import com.fongmi.android.NewTV.ui.sheet.PanelSheet;
 import com.fongmi.android.NewTV.ui.sheet.SheetList;
 import com.fongmi.android.NewTV.ui.sheet.TrackSheet;
@@ -119,10 +123,24 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, VodInput.Listener, ParseDialog.Listener, ArrayAdapter.OnClickListener, FlagAdapter.OnClickListener, EpisodeAdapter.OnClickListener, QualityAdapter.OnClickListener, QuickAdapter.OnClickListener, Clock.Callback {
+public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, VodInput.Listener, ParseDialog.Listener, ArrayAdapter.OnClickListener, FlagAdapter.OnClickListener, EpisodeAdapter.OnClickListener, QualityAdapter.OnClickListener, QuickAdapter.OnClickListener, Clock.Callback, DanmakuListener {
 
     /** 控制条弹出后的自动隐藏延时：10 秒（原为 5 秒）。 */
     private static final long HIDE_DELAY = 10_000L;
+    /**
+     * 控制条整体下压量（物理像素）：把 {@code view_control_vod} 根部原本 48dp 的底部内边距
+     * 收掉一截，让进度条与按钮行更贴近屏幕下沿，画面底部不留一片纯黑。
+     *
+     * <p>用 px 而不是 dp：这个量是照着「屏幕像素」定的，换一台密度不同的设备时下压的观感应当一致。
+     */
+    private static final int CONTROL_BOTTOM_LIFT_PX = 100;
+    /**
+     * 控制条底部的最小安全留白：下压到极限也要保留这么高，
+     * 否则按钮的焦点光晕（{@code GlowBackground}）会贴住屏幕下沿、看起来像被切掉。
+     */
+    private static final int CONTROL_BOTTOM_MIN_DP = 8;
+    /** {@code view_control_vod.xml} 根布局的底部内边距基准值，与 XML 里的 48dp 必须一致。 */
+    private static final int CONTROL_BOTTOM_BASE_DP = 48;
     /** 控制条 / 顶部信息条的滑入、滑出动画：入先快后慢（减速），出先慢后快（加速）。 */
     private static final long SLIDE_IN_DURATION = 240L;
     private static final long SLIDE_OUT_DURATION = 200L;
@@ -165,8 +183,14 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     private ActivityVideoBinding mBinding;
     private VideoSheet mSheet;
+    /** 控制条焦点特效句柄：浮层打开期间用它把锚点按钮钉在「选中态」。 */
+    private ControlFocusEffect.Effect mControlFocusEffect;
+    /** 当前被钉住的锚点按钮（同一时刻只允许一个），用于维护 state_activated。 */
+    private View mPinnedAnchor;
     private PanelSheet mPanelSheet;
     private TrackSheet mTrackSheet;
+    /** 弹幕搜索：与 TrackSheet 共用同一个 VideoSheet 宿主的另一页内容。 */
+    private DanmakuSearchSheet mDanmakuSearchSheet;
     private SheetList mEpisodeList;
     private SheetList mSpeedList;
     private final List<Episode> mEpisodes = new ArrayList<>();
@@ -212,16 +236,28 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     /** 内容首帧监听已挂上，防止重复注册 OneShotPreDrawListener。 */
     private boolean mContentDrawnPending;
     /**
-     * 兜底：内容首帧没来（接口超时 / 页面未绘制）时，直接把背景图摆到最终透明度，
-     * 保证「有素材却始终看不见」这种异常状态不会持续。
+     * 页面所有控件是否已经加载完成（内容层首帧真正上屏）。
+     * 背景位图解码 / 羽化比较重，就绪前一律只登记片名、不加载，避免和控件初始化抢主线程。
      */
-    private final Runnable mHeroFallback = () -> fadeInDetailHero(false);
+    private boolean mHeroReady;
+    /** 控件就绪前收到的最后一次背景请求片名，就绪后补做一次加载。 */
+    private String mPendingHeroName;
+    /**
+     * 兜底：内容首帧没来（接口超时 / 页面未绘制）时，直接把背景图摆到最终透明度，
+     * 保证「有素材却始终看不见」这种异常状态不会持续。超时同样先补做加载，否则无图可显示。
+     */
+    private final Runnable mHeroFallback = () -> {
+        markHeroReady();
+        fadeInDetailHero(false);
+    };
     /**
      * 刮削完成后的背景图刷新：不区分这次抓取由谁发起（首页海报聚焦 / 本页播放起播），
      * 结果落地后都按当前片名重新对一次缓存 —— 否则「首页发起、详情页正开着」时会漏掉这张图。
      */
     private final Runnable mHeroRefresh = () -> updateDetailHero(detailName());
     private final Runnable mTmdbFallback = this::onTmdbDanmakuTimeout;
+    /** 弹幕热力数据变化：解析完成 / 换集清空都在主线程回调，这里只管把数据交给进度条。 */
+    private final DanmakuHeat.Listener mHeatListener = this::applyHeatmap;
 
     public static void push(FragmentActivity activity, String text) {
         if (TextUtils.isEmpty(text)) return;
@@ -381,6 +417,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     protected void initView(Bundle savedInstanceState) {
         super.initView(savedInstanceState);
         mFrameParams = mBinding.video.getLayoutParams();
+        applyControlBottomInset();
         mClock = Clock.create(mBinding.widget.clock);
         mInput = VodInput.create(this, this);
         mR1 = this::hideControl;
@@ -391,14 +428,34 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         setVideoView();
         setViewModel();
         renderFallbackName(getName());
-        // 打开页面立刻用本地缓存铺好右上角背景图（有则显示、无则保持空白），不等详情接口返回。
+        // 先按 intent 片名登记背景请求；真正加载要等该页所有控件加载完成（见 markHeroReady）。
         updateDetailHero(getName());
         // 兜底计时：内容首帧迟迟不来（接口卡住 / 页面没绘制）时不至于一直看不见这张图。
         App.post(mHeroFallback, DETAIL_HERO_READY_TIMEOUT);
         // 抓取结果可能由首页发起、也可能由本页发起：两种情况都要能实时回填这张背景图。
         TmdbApi.addOnFetched(mHeroRefresh);
+        // 弹幕热力图：解析完成 / 换集清空都会回调，先把已有数据贴上（换集后是空）
+        DanmakuHeat.addListener(mHeatListener);
+        applyHeatmap();
         checkCast();
         checkId();
+    }
+
+    /**
+     * 把控制条整体向下压 {@link #CONTROL_BOTTOM_LIFT_PX} px。
+     *
+     * <p>控制条根部是 {@code layout_gravity=bottom} 的 {@code wrap_content} 面板，底边恒贴屏幕下沿，
+     * 所以「整体下移」等价于减少它的底部内边距：面板高度随之变矮、背景渐变的上沿一起下移，
+     * 进度条与按钮行都会向下走，不会只挪内容却留下一块空背景。
+     *
+     * <p>底部留白始终不少于 {@link #CONTROL_BOTTOM_MIN_DP}，低密度设备上 48dp 本身就不足 100px 时
+     * 只会把留白压到下限，不会出现负 padding（负值在布局里会被当 0，反而丢掉了安全区）。
+     */
+    private void applyControlBottomInset() {
+        View control = mBinding.control.getRoot();
+        int base = ResUtil.dp2px(CONTROL_BOTTOM_BASE_DP);
+        int bottom = Math.max(ResUtil.dp2px(CONTROL_BOTTOM_MIN_DP), base - CONTROL_BOTTOM_LIFT_PX);
+        control.setPaddingRelative(control.getPaddingStart(), control.getPaddingTop(), control.getPaddingEnd(), bottom);
     }
 
     @Override
@@ -509,7 +566,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         View[] scaleOnly = {
                 mBinding.control.action.opening,
                 mBinding.control.action.ending};
-        ControlFocusEffect.attach(mBinding.control.getRoot(), glow, scaleOnly);
+        mControlFocusEffect = ControlFocusEffect.attach(mBinding.control.getRoot(), glow, scaleOnly);
         // 播放键的图标比其它按钮大一圈，光晕也要相应放大，边缘过渡才明显
         ControlFocusEffect.setHaloScale(mBinding.control.action.playPause, 1.45f);
     }
@@ -542,7 +599,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         bindSeekCenterKey();
         mSheet = new VideoSheet(mBinding.video, mBinding.sheet, this::onSheetShow, this::onSheetDismiss);
         mPanelSheet = new PanelSheet(this, mBinding.control.action);
-        mTrackSheet = new TrackSheet(this, this::hideSheet, this::pickSubtitleFile);
+        mDanmakuSearchSheet = new DanmakuSearchSheet(this, this::hideSheet);
+        mTrackSheet = new TrackSheet(this, this::hideSheet, this::pickSubtitleFile, this::showDanmakuSearchSheet);
         mEpisodeList = new SheetList(this);
         // 选集：选中行上方不足一屏时顶部对齐，避免弹窗顶部出现空行（倍速列表维持贴底）
         mEpisodeList.setAvoidEmptyRows(true);
@@ -570,6 +628,26 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     /**
+     * 把当前集的弹幕分布交给进度条。
+     *
+     * <p>三种情况都传 null：关掉「弹幕加载」、关掉设置里的「进度条弹幕热力图」、
+     * 或者在播放页按弹幕键把弹幕本身关掉 —— 没有弹幕就没有密度可看。
+     */
+    private void applyHeatmap() {
+        LeanbackTimeBar bar = timeBar();
+        if (bar == null) return;
+        boolean danmaku = service() == null ? DanmakuSetting.isShow() : player().isDanmakuEnabled();
+        boolean show = DanmakuSetting.isLoad() && DanmakuSetting.isHeatmap() && danmaku;
+        bar.setHeatmap(show ? DanmakuHeat.get() : null);
+    }
+
+    @Nullable
+    private LeanbackTimeBar timeBar() {
+        View view = mBinding.control.seek.findViewById(androidx.media3.ui.R.id.exo_progress);
+        return view instanceof LeanbackTimeBar bar ? bar : null;
+    }
+
+    /**
      * 播放/暂停按钮的图标：按「播放意图」（playWhenReady）而不是「真实播放中」来画。
      *
      * <p>用 isPlaying() 时，缓冲/卡顿/切集的那几百毫秒里状态是 false，图标会先翻成播放三角再翻回来 ——
@@ -593,6 +671,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mBinding.control.action.danmaku.setVisibility(View.VISIBLE);
         mBinding.control.action.danmaku.setSelected(enabled);
         mBinding.control.action.danmaku.setAlpha(load ? 1f : 0.4f);
+        // 热力图跟着弹幕一起开关：弹幕关掉就没必要再显示密度曲线
+        applyHeatmap();
     }
 
     private void setPlaybackMode() {
@@ -916,7 +996,23 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
      */
     private void updateDetailHero(@Nullable String name) {
         if (TextUtils.isEmpty(name)) return;
+        // 只改加载时机：控件尚未全部加载完成时不做任何 TmdbStore 查询 / 位图解码 / 羽化，
+        // 仅记住最后一次请求的片名，等 markHeroReady() 再补上。其余（素材匹配、透明渐入、
+        // 换片复位、抓取回填、超时兜底）全部沿用原逻辑。
+        if (!mHeroReady) {
+            mPendingHeroName = name;
+            return;
+        }
         applyDetailHero(TmdbStore.find(name));
+    }
+
+    /** 内容层首帧已上屏：该页所有控件加载完成，此刻才允许真正加载背景图。 */
+    private void markHeroReady() {
+        if (mHeroReady) return;
+        mHeroReady = true;
+        String name = mPendingHeroName;
+        mPendingHeroName = null;
+        if (!TextUtils.isEmpty(name)) updateDetailHero(name);
     }
 
     /** 当前详情页的片名：优先用历史记录里的海报名（TMDB 别名就是按它关联的），
@@ -981,6 +1077,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
      */
     private void notifyContentRendered() {
         if (mContentDrawn) {
+            markHeroReady();
             fadeInDetailHero(true);
             return;
         }
@@ -989,6 +1086,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         OneShotPreDrawListener.add(mBinding.progressLayout, () -> App.post(() -> {
             mContentDrawnPending = false;
             mContentDrawn = true;
+            // 控件都已上屏，这时才解码并装载背景；随后立刻按原有渐入逻辑露脸。
+            markHeroReady();
             App.removeCallbacks(mHeroFallback);
             fadeInDetailHero(true);
         }));
@@ -1031,6 +1130,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mHeroPrepared = false;
         mHeroShown = false;
         mContentDrawn = false;
+        mPendingHeroName = null;
         mHeroArt = null;
         mBinding.videoHero.animate().cancel();
         mBinding.videoHero.setImageDrawable(null);
@@ -1299,6 +1399,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         // 详情加载失败 / 超时：控件不会再有「加载完成」这一步，背景图直接落到终值 ——
         // 有一层淡淡的氛围图，界面不至于空成一块黑板；不做渐入，避免和空态文字抢出场顺序。
         mContentDrawn = true;
+        markHeroReady();
         fadeInDetailHero(false);
     }
 
@@ -1705,15 +1806,44 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     /** 浮层打开：进度条退出焦点链，并把浮层以外的控件整体锁掉，焦点只能在浮层内部活动。 */
     private void onSheetShow() {
+        // 先钉住再锁焦点：setOutsideFocusable(false) 会让按钮失焦并触发一次全局焦点回调，
+        // 若那时还没钉住，按钮会先起一段「收起」动画再被重新点亮，出现一次可见抖动。
+        setControlPinned(mSheet == null ? null : mSheet.getAnchor());
         setSeekFocusable(false);
         setOutsideFocusable(false);
     }
 
     /** 浮层关闭后恢复外部的焦点能力，并重新激活自动隐藏计时（暂停态由 scheduleAutoHide 内部再判一次）。 */
     private void onSheetDismiss() {
+        // 搜索页可能有在途请求：浮层收起时取消，结果留在内存里供再次打开复用。
+        // 从「选择弹幕」replace 到搜索页不走这里，所以不会误杀刚发起的搜索。
+        if (mDanmakuSearchSheet != null) mDanmakuSearchSheet.onDismiss();
         setSeekFocusable(true);
         setOutsideFocusable(true);
+        // 延一帧再撤钉：hideSheet() 紧接着会把焦点还给锚点按钮，若这里同步撤钉，
+        // 按钮会先「熄一下」再被焦点重新点亮。若期间又打开了新浮层，保留新的锚点。
+        mBinding.control.getRoot().post(() -> {
+            if (mSheet == null || !mSheet.isShowing()) setControlPinned(null);
+        });
         scheduleAutoHide();
+    }
+
+    /**
+     * 把「正开着浮层」这件事记在锚点按钮上。
+     *
+     * <p>用 {@code activated} 而不是 {@code selected}：控制条上弹幕开关、调试、循环等按钮已经用
+     * {@code selected} 表达业务状态（{@code syncDanmaku()}、{@code setDebug()}…），
+     * 两者正交，浮层关闭后业务状态原样保留。
+     *
+     * <p>{@code activated} 负责图标 / 文字的橙色（见各个 selector_control_*），
+     * {@code Effect.setPinned()} 负责放大与辉光；同一时刻只钉一个按钮，其余按钮只按真实焦点走。
+     */
+    private void setControlPinned(View anchor) {
+        if (mPinnedAnchor == anchor) return;
+        if (mPinnedAnchor != null) mPinnedAnchor.setActivated(false);
+        mPinnedAnchor = anchor;
+        if (anchor != null) anchor.setActivated(true);
+        if (mControlFocusEffect != null) mControlFocusEffect.setPinned(anchor);
     }
 
     /**
@@ -1773,9 +1903,13 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         // 高度只看总集数：<6 自适应，>=6 固定 6 行；与当前选中行无关
         int rows = Math.max(1, Math.min(6, texts.size()));
         mEpisodeList.setRows(rows);
-        // 列条宽度按「列表里最长的一行」自适应（与当前选中行无关）：最少 3 个汉字、最多 15 个汉字，
-        // 超过 15 个汉字的部分交给条目 marquee 左右滚动；指示器槽位额外加宽，不占文字的字符宽度。
-        int textWidth = Math.min(Math.max(measureSheetText(texts), measureSheetChars(3)), measureSheetChars(15));
+        // 列条宽度以「单个 15sp 汉字」为步长量化：按最长行算出需要几个整字，
+        // 3~15 字之间按内容自适应（既不留半个字的空白，也不会提前截断）；
+        // 超过 15 字固定为 15 字宽，溢出部分交给条目的左右往复跑马灯展示。
+        int chars = Math.max(1, (int) Math.ceil(measureSheetText(texts) / sheetCharWidth()));
+        int textWidth = measureSheetChars(Math.max(3, Math.min(15, chars)));
+        // 「正在播放」指示器是行内独立槽位（10dp 图标 + 6dp 间距），不参与文字测量，
+        // 但必须从浮层宽度里额外预留：否则宽度被文字吃满，指示器会挤压 / 盖住标题。
         int width = textWidth + ResUtil.dp2px(SHEET_ROW_CHROME_DP + SHEET_PLAYING_SLOT_DP);
         mSheet.show(anchor == null ? mBinding.control.action.next : anchor, mEpisodeList.getView(), width, mEpisodeList::focus);
     }
@@ -1825,6 +1959,45 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mSheet.show(mBinding.control.action.danmaku, mTrackSheet.getView(), ResUtil.dp2px(TrackSheet.WIDTH_DP) + ResUtil.dp2px(16), mTrackSheet::focus);
     }
 
+    /** 「选择弹幕」页的放大镜：切到同一个 VideoSheet 宿主里的弹幕搜索页，并用片名立即搜索。 */
+    private void showDanmakuSearchSheet() {
+        openDanmakuSearchSheet(true);
+    }
+
+    /** 改完弹幕接口地址后的回场：保留用户输入的关键词，重新打开搜索页再搜一次。 */
+    private void reopenDanmakuSearchSheet() {
+        if (service() == null) return;
+        // 接口设置对话框可能停留超过控制条的 10 秒自动隐藏时长；先让控制条回到屏上，
+        // 否则浮层会拿一个已隐藏的锚点去算坐标而跑偏。showControl 内部会重排计时。
+        showControl(mBinding.control.action.danmaku);
+        openDanmakuSearchSheet(false);
+    }
+
+    /**
+     * 弹幕搜索与「选择弹幕」共用一个 {@link VideoSheet}：已展开时只 {@code replace} 内容页，
+     * 不收起、不重播展开动画，玻璃窗体与焦点锁原样保留；没展开时按常规锚点弹出。
+     */
+    private void openDanmakuSearchSheet(boolean autoSearch) {
+        if (service() == null) return;
+        mDanmakuSearchSheet.bind(player(), autoSearch);
+        int width = DanmakuSearchSheet.widthPx();
+        View content = mDanmakuSearchSheet.getView();
+        if (mSheet.isShowing()) mSheet.replace(content, width, mDanmakuSearchSheet::focus);
+        else mSheet.show(mBinding.control.action.danmaku, content, width, mDanmakuSearchSheet::focus);
+        mDanmakuSearchSheet.research();
+    }
+
+    /**
+     * 弹幕接口设置对话框（{@code DanmakuApiDialog.show(activity)}）以 Activity 为回调目标。
+     * 齿轮点击时会先收起浮层，这里延一帧再打开搜索页，等对话框 dismiss 完成后再接管焦点。
+     */
+    @Override
+    public void setDanmakuApi(String url) {
+        if (mDanmakuSearchSheet == null) return;
+        mDanmakuSearchSheet.setDanmakuApi(url);
+        if (mDanmakuSearchSheet.hasKeyword()) App.post(this::reopenDanmakuSearchSheet);
+    }
+
     /**
      * 弹幕快捷开关：只切当前播放器的弹幕显隐，不写全局设置。
      * 系统总开关关闭时按钮已置灰，此时点击（确认）提示去设置里开启，不产生任何开关动作。
@@ -1852,23 +2025,28 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     /** 用条目真实字号量文字宽度，菜单宽度跟着内容走。 */
+    private void ensureSheetProbe() {
+        if (mSheetProbe != null) return;
+        mSheetProbe = new TextView(this);
+        mSheetProbe.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+    }
+
     private int measureSheetText(List<String> texts) {
-        if (mSheetProbe == null) {
-            mSheetProbe = new TextView(this);
-            mSheetProbe.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        }
+        ensureSheetProbe();
         float max = 0;
         for (String text : texts) max = Math.max(max, mSheetProbe.getPaint().measureText(text));
         return (int) Math.ceil(max);
     }
 
+    /** 单个 15sp 汉字的像素宽（浮点，作为选集浮层宽度的量化步长）。 */
+    private float sheetCharWidth() {
+        ensureSheetProbe();
+        return Math.max(1f, mSheetProbe.getPaint().measureText("汉"));
+    }
+
     /** {@code count} 个 15sp 汉字的像素宽（列条的最小/最大宽度按汉字数定义）。 */
     private int measureSheetChars(int count) {
-        if (mSheetProbe == null) {
-            mSheetProbe = new TextView(this);
-            mSheetProbe.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        }
-        return (int) Math.ceil(mSheetProbe.getPaint().measureText("汉") * count);
+        return (int) Math.ceil(sheetCharWidth() * count);
     }
 
     private int nearestSpeedIndex(float speed) {
@@ -2486,6 +2664,9 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
             return true;
         }
         if (focused instanceof com.google.android.material.slider.Slider) return false;
+        // 输入框内左右键要先用来移动光标，到边界再由 CustomEditText 自己找焦点；
+        // 若在这里一律交给 focusSearch，弹幕搜索框就没法编辑关键词了。
+        if (focused instanceof android.widget.EditText) return false;
         if (event.getAction() != KeyEvent.ACTION_DOWN) return true;
         int direction = keyCode == KeyEvent.KEYCODE_DPAD_LEFT ? View.FOCUS_LEFT : View.FOCUS_RIGHT;
         View next = focused.focusSearch(direction);
@@ -2577,6 +2758,13 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        // 设置里可能刚改过「弹幕加载 / 进度条弹幕热力图」，回到播放页立即按新开关重贴一次
+        applyHeatmap();
+    }
+
+    @Override
     protected void onStop() {
         mInput.cancelSeek();
         super.onStop();
@@ -2623,7 +2811,10 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         App.removeCallbacks(mHeroFallback);
         mBinding.videoHero.animate().cancel();
         TmdbApi.removeOnFetched(mHeroRefresh);
+        DanmakuHeat.removeListener(mHeatListener);
         if (mSheet != null) mSheet.dismissNow();
+        // 兜底：onSheetDismiss 的延帧清钉可能还没跑到，别把 activated 残留在按钮上。
+        setControlPinned(null);
         super.onDestroy();
     }
 }

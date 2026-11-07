@@ -373,6 +373,7 @@
 
     <!-- Danmaku -->
     <string name="danmaku_load">弹幕加载</string>
+    <string name="danmaku_heatmap">进度条弹幕热力图</string>
     <string name="danmaku_api">搜索接口</string>
     <string name="danmaku_auto_load">自动搜索</string>
     <string name="danmaku_spider_first">爬虫优先</string>
