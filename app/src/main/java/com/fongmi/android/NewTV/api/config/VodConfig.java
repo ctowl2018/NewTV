@@ -34,9 +34,9 @@ public class VodConfig extends BaseConfig {
 
     private static final String TAG = VodConfig.class.getSimpleName();
 
-    /** 临时内置点播地址（本次构建专用，不校验有效性）。 */
-    private static final String TEMP_VOD_URL = "***REMOVED***";
-    private static final String TEMP_VOD_NAME = "***REMOVED***";
+    /** 不再内置任何默认点播源；留空时全新安装需用户在设置页自行添加。 */
+    private static final String TEMP_VOD_URL = "";
+    private static final String TEMP_VOD_NAME = "";
 
     private Site home;
     private Parse parse;
@@ -80,14 +80,13 @@ public class VodConfig extends BaseConfig {
     }
 
     /**
-     * 当前点播配置。
-     *
-     * <p>临时逻辑（本次构建专用）：全新安装配置表为空时，写入一个内置点播地址并直接作为当前源，
-     * 不做地址有效性校验。移除时删掉 {@link #TEMP_VOD_URL}/{@link #TEMP_VOD_NAME} 与这里的兜底即可。
+     * 当前点播配置。项目不再内置默认点播源，配置表为空时直接返回空配置，
+     * 由用户在设置页添加；{@link #TEMP_VOD_URL} 留空时不写入任何兜底记录。
      */
     private static Config defaultVod() {
         Config config = Config.vod();
         if (!config.isEmpty()) return config;
+        if (TEMP_VOD_URL.isEmpty()) return config;
         // 只自动写入一次：用户在界面上删掉后不再自动恢复。
         if (Prefers.getBoolean("temp_vod_seeded")) return config;
         Prefers.put("temp_vod_seeded", true);

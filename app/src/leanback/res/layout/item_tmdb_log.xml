@@ -58,7 +58,7 @@
         android:textColor="@color/white"
         android:textSize="12sp"
         android:visibility="gone"
-        tools:text="请求：https://***REMOVED***/3/search/multi?language=zh-CN&amp;page=1&amp;query=%E7%B9%81%E8%8A%B1&amp;api_key=***REMOVED***"
+        tools:text="请求：https://example.com/3/search/multi?language=zh-CN&amp;page=1"
         tools:visibility="visible" />
 
     <com.google.android.material.textview.MaterialTextView

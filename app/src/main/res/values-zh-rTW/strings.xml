@@ -607,7 +607,7 @@
     <string name="tmdb_enable">啟用TMDB刮削</string>
     <string name="tmdb_site_index">站點 %1$d</string>
     <string name="tmdb_add_site">新增站點</string>
-    <string name="tmdb_site_url_hint">站點位址，如 https://***REMOVED***</string>
+    <string name="tmdb_site_url_hint">站點位址，如 https://example.com</string>
     <string name="tmdb_site_key_hint">該站點的 API 金鑰</string>
     <string name="tmdb_site_delete">刪除</string>
     <string name="tmdb_site_invalid">位址需以 http:// 或 https:// 開頭</string>

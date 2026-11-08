@@ -24,7 +24,7 @@ import okhttp3.Call;
 import okhttp3.Response;
 
 /**
- * 搜索页热词数据源：自建榜单接口 {@code /rank/***REMOVED***?format=json}。
+ * 搜索页热词数据源：自建榜单接口（JSON 格式）。
  *
  * <p>接口一次返回优酷 / 爱奇艺 / 腾讯视频 / 芒果TV 四个平台的电影、电视剧、综艺榜单，
  * 单次请求即可拿到全部类目，按 {@code category} 抽出当前类目后合并。
@@ -45,7 +45,7 @@ public class HotRank {
     public static final int TV = 3;
     public static final int VARIETY = 4;
 
-    private static final String RANK_URL = "http://***REMOVED***/rank/***REMOVED***?format=json";
+    private static final String RANK_URL = "https://example.com/?format=json";
     /** 每个类目最多输出多少条，与搜索页的 HOT_LIMIT 对齐。 */
     private static final int LIMIT = 10;
 

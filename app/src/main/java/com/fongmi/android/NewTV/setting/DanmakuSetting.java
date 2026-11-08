@@ -14,8 +14,8 @@ import com.github.catvod.utils.Prefers;
 
 public class DanmakuSetting {
 
-    /** 默认弹幕搜索接口。 */
-    public static final String DEFAULT_API_URL = "http://***REMOVED***";
+    /** 默认不内置弹幕搜索接口，需用户在设置页自行填写；空值不会发起请求。 */
+    public static final String DEFAULT_API_URL = "";
 
     /**
      * 本项目默认值：字体效果＝阴影、最大滚动数＝3、垂直间距＝1.5。

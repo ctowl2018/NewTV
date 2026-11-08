@@ -658,7 +658,7 @@
     <string name="tmdb_enable">Enable TMDB scraping</string>
     <string name="tmdb_site_index">Site %1$d</string>
     <string name="tmdb_add_site">Add site</string>
-    <string name="tmdb_site_url_hint">Site URL, e.g. https://***REMOVED***</string>
+    <string name="tmdb_site_url_hint">Site URL, e.g. https://example.com</string>
     <string name="tmdb_site_key_hint">API key for this site</string>
     <string name="tmdb_site_delete">Delete</string>
     <string name="tmdb_site_invalid">URL must start with http:// or https://</string>

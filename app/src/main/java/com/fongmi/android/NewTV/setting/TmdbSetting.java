@@ -23,14 +23,18 @@ import java.util.concurrent.atomic.AtomicInteger;
  * 某个站点失败时由 {@link TmdbApi} 顺延到下一个站点重试。</p>
  *
  * <p>兼容旧配置：早期版本只有 {@code tmdb_api_url} + {@code tmdb_api_key} 两项，
- * 首次读取时自动迁移成一条站点记录；若老地址就是默认站点，再补上默认的第二个站点。</p>
+ * 首次读取时自动迁移成一条站点记录。</p>
+ *
+ * <p>项目不再内置任何默认站点与密钥：新安装需用户在「设置 → TMDB 配置」自行添加。
+ * 未配置时 {@link #getSites()} 返回空列表，抓取请求会以「no tmdb site」安全失败。</p>
  */
 public final class TmdbSetting {
 
-    public static final String DEFAULT_API_URL = "https://***REMOVED***";
-    public static final String DEFAULT_API_KEY = "***REMOVED***";
-    public static final String DEFAULT_API_URL_2 = "https://***REMOVED***";
-    public static final String DEFAULT_API_KEY_2 = "***REMOVED***";
+    /** 留空表示不内置默认站点 / 密钥；保留常量以维持设置页与迁移逻辑的结构。 */
+    public static final String DEFAULT_API_URL = "";
+    public static final String DEFAULT_API_KEY = "";
+    public static final String DEFAULT_API_URL_2 = "";
+    public static final String DEFAULT_API_KEY_2 = "";
 
     /** 站点数量上限：仅用于设置页防呆，轮换逻辑本身按实际条数走。 */
     public static final int MAX_SITES = 8;
@@ -48,7 +52,7 @@ public final class TmdbSetting {
     private TmdbSetting() {
     }
 
-    /** 当前生效的站点列表，至少一条，顺序即轮换顺序。 */
+    /** 当前生效的站点列表；未配置时为空，顺序即轮换顺序。 */
     public static List<TmdbSite> getSites() {
         List<TmdbSite> sites = cache;
         if (sites != null) return sites;
@@ -64,7 +68,7 @@ public final class TmdbSetting {
     public static void putSites(List<TmdbSite> sites) {
         List<TmdbSite> cleaned = new ArrayList<>();
         if (sites != null) for (TmdbSite site : sites) add(cleaned, site);
-        if (cleaned.isEmpty()) add(cleaned, new TmdbSite(DEFAULT_API_URL, DEFAULT_API_KEY));
+        // 允许用户清空全部站点；不再回落到一个内置默认站点。
         Prefers.put(KEY_SITES, App.gson().toJson(cleaned));
         cache = Collections.unmodifiableList(cleaned);
         CURSOR.set(0);
@@ -114,22 +118,12 @@ public final class TmdbSetting {
         return sites;
     }
 
-    /** 旧版单站点配置 → 新结构。只在 tmdb_sites 缺失时跑一次。 */
+    /** 旧版单站点配置 → 新结构。只在 tmdb_sites 缺失时跑一次；不再注入任何内置默认站点。 */
     private static synchronized List<TmdbSite> migrate() {
         List<TmdbSite> sites = new ArrayList<>();
         String url = Prefers.getString(KEY_LEGACY_URL, "").trim();
         String key = Prefers.getString(KEY_LEGACY_KEY, "").trim();
-        if (!TextUtils.isEmpty(url)) {
-            add(sites, new TmdbSite(url, TextUtils.isEmpty(key) ? DEFAULT_API_KEY : key));
-            // 用户没改过地址（仍是默认站点）时补上默认的第二个站点，否则只保留他自己那一条。
-            if (sites.size() == 1 && TextUtils.equals(sites.get(0).base(), DEFAULT_API_URL)) {
-                add(sites, new TmdbSite(DEFAULT_API_URL_2, DEFAULT_API_KEY_2));
-            }
-        }
-        if (sites.isEmpty()) {
-            add(sites, new TmdbSite(DEFAULT_API_URL, DEFAULT_API_KEY));
-            add(sites, new TmdbSite(DEFAULT_API_URL_2, DEFAULT_API_KEY_2));
-        }
+        if (!TextUtils.isEmpty(url)) add(sites, new TmdbSite(url, key));
         Prefers.put(KEY_SITES, App.gson().toJson(sites));
         CURSOR.set(0);
         return sites;

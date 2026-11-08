@@ -34,7 +34,7 @@
             android:singleLine="true"
             android:textColor="@color/white"
             android:textSize="18sp"
-            tools:text="https://***REMOVED***" />
+            tools:text="https://example.com" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
 
