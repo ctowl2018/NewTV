@@ -34,7 +34,7 @@ public class TypeAdapter extends RecyclerView.Adapter<TypeAdapter.ViewHolder> {
     }
 
     /**
-     * 「更新推荐」项：固定在类型栏第 2 位。
+     * 「首页」项：固定在类型栏第 2 位，是应用启动的默认页。
      *
      * <p>与真实分类同排在导航里，但不是站点分类；它由 {@code RecommendFragment}
      * 承载，数据来自 {@code homeContent()}。这里只负责生成用于胶囊显示与分页定位的 Class。
@@ -50,7 +50,7 @@ public class TypeAdapter extends RecyclerView.Adapter<TypeAdapter.ViewHolder> {
      * 覆盖类型列表。
      *
      * <p>前两枚固定胶囊无条件插入：未配置任何站源时 {@code items} 为空，
-     * 导航栏仍要保留「最近观看 / 更新推荐」，样式与位置和有站源时保持一致。
+     * 导航栏仍要保留「最近观看 / 首页」，样式与位置和有站源时保持一致。
      * 真实分类从第 2 位开始。
      */
     public void addAll(List<Class> items) {
@@ -98,7 +98,7 @@ public class TypeAdapter extends RecyclerView.Adapter<TypeAdapter.ViewHolder> {
         return mItems.indexOf(item);
     }
 
-    /** 是否包含首页项（任何情况下都位于第 0 位，与是否有站源无关）。 */
+    /** 是否包含「最近观看」项（任何情况下都位于第 0 位，与是否有站源无关）。 */
     public boolean hasHome() {
         return !mItems.isEmpty() && mItems.get(0).isHome();
     }
@@ -121,7 +121,7 @@ public class TypeAdapter extends RecyclerView.Adapter<TypeAdapter.ViewHolder> {
         holder.binding.text.setSelected(item.isSelected());
         holder.binding.text.setCompoundDrawablePadding(ResUtil.dp2px(4));
         holder.binding.text.setCompoundDrawablesWithIntrinsicBounds(0, 0, getIcon(item), 0);
-        // 「最近观看」不提供长按刷新；「更新推荐」保留（回调里刷新首页数据）。
+        // 「最近观看」不提供长按刷新；「首页」保留（回调里刷新首页数据）。
         holder.binding.text.setListener(item.isHome() ? null : () -> mListener.onRefresh(item));
         holder.binding.getRoot().setOnClickListener(v -> mListener.onItemClick(item));
     }

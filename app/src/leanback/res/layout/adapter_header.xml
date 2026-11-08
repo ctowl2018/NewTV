@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  首页「最近观看 / 更新推荐」区块标题：18sp、中性灰 #A5A5A5（见 @color/home_section），
+  首页「最近观看 / 首页」区块标题：18sp、中性灰 #A5A5A5（见 @color/home_section），
   避免与白色的海报标题抢注意力。
 
   paddingBottom = 2dp：标题与下方海报之间多加 2dp 留白。

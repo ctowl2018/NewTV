@@ -98,7 +98,7 @@ public class VodActivity extends BaseActivity implements HomeHeader.Host, Conten
     }
 
     /**
-     * 类型栏前置固定胶囊（最近观看 / 更新推荐）不占分页。
+     * 类型栏前置固定胶囊（最近观看 / 首页）不占分页。
      * 偏移由 TypeAdapter 统一给出，避免两个页面各写一份常量导致错位。
      */
     private int toAdapterPosition(int pagerPosition) {
@@ -280,9 +280,9 @@ public class VodActivity extends BaseActivity implements HomeHeader.Host, Conten
             finish();
             return;
         }
-        // 「更新推荐」：回首页并直接落在该页（该页由 HomeActivity 承载）
+        // 「首页」：回首页并直接落在该页（该页由 HomeActivity 承载）
         if (item.isRecommend()) {
-            HomeHeader.openRecommend(this);
+            HomeHeader.openHome(this);
             return;
         }
         updateFilter(item, Math.max(0, toPagerPosition(position)));
@@ -295,7 +295,7 @@ public class VodActivity extends BaseActivity implements HomeHeader.Host, Conten
             return;
         }
         if (item.isRecommend()) {
-            HomeHeader.openRecommend(this);
+            HomeHeader.openHome(this);
             return;
         }
         getFragment().onRefresh();

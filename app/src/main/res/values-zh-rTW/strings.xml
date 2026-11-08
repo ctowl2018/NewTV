@@ -344,7 +344,7 @@
 
     <!-- Danmaku -->
     <string name="danmaku_load">彈幕載入</string>
-    <string name="danmaku_heatmap">進度條彈幕熱力圖</string>
+    <string name="danmaku_heatmap">在進度條上顯示彈幕熱力圖</string>
     <string name="danmaku_api">搜尋接口</string>
     <string name="danmaku_auto_load">自動搜尋</string>
     <string name="danmaku_spider_first">爬蟲優先</string>
@@ -619,7 +619,7 @@
     <string name="tmdb_cache_info">%1$d 張 · %2$s</string>
     <string name="tmdb_clear">清理快取</string>
     <string name="tmdb_clear_confirm">確認刪除全部 TMDB 背景圖與 logo 快取？</string>
-    <!-- 刮削失敗提示開關：預設開啟，位於「啟用TMDB刮削」下方 -->
+    <!-- 刮削失敗提示開關：預設關閉，位於「啟用TMDB刮削」下方；TMDB 刮削關閉時該開關不參與判定 -->
     <string name="tmdb_error_toast">刮削失敗提示</string>
     <string name="tmdb_fetch_failed">TMDB 刮削失敗：%1$s</string>
     <string name="tmdb_retry">TMDB刮削</string>

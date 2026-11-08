@@ -24,7 +24,7 @@ public class Class implements Parcelable, Diffable<Class> {
 
     /** 类型栏前置哨兵的固定 typeId：最近观看（沿用历史值，isHome() 判定不变）。 */
     public static final String TYPE_HOME = "home";
-    /** 类型栏前置哨兵的固定 typeId：更新推荐（独立页面，数据来自 homeContent）。 */
+    /** 类型栏前置哨兵的固定 typeId：首页（独立页面，数据来自 homeContent；应用启动默认页）。 */
     public static final String TYPE_RECOMMEND = "recommend";
 
     @Attribute(name = "id", required = false)
@@ -135,7 +135,7 @@ public class Class implements Parcelable, Diffable<Class> {
         return TYPE_HOME.equals(getTypeId());
     }
 
-    /** 是否为「更新推荐」哨兵页：它不是站点分类，数据由 homeContent 提供。 */
+    /** 是否为「首页」哨兵页：它不是站点分类，数据由 homeContent 提供。 */
     public boolean isRecommend() {
         return TYPE_RECOMMEND.equals(getTypeId());
     }

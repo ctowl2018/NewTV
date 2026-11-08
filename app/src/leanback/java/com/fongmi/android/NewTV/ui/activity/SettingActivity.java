@@ -77,9 +77,10 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
     private void setOtherText() {
         mBinding.dohText.setText(getDohList()[getDohIndex()]);
         mBinding.incognitoText.setText(Setting.getSwitch(Setting.isIncognito()));
-        mBinding.searchSuggestText.setText(Setting.getSwitch(Setting.isSearchSuggest()));
         mBinding.sizeText.setText((size = ResUtil.getStringArray(R.array.select_size))[PlayerSetting.getSize()]);
-        mBinding.tmdbText.setText(getString(R.string.tmdb_site_summary, TmdbSetting.getSites().size()));
+        mBinding.tmdbText.setText(TmdbSetting.isEnabled()
+                ? getString(R.string.tmdb_site_summary, TmdbSetting.getSites().size())
+                : getString(R.string.setting_off));
     }
 
     @Override
@@ -112,7 +113,6 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         mBinding.vod.setOnLongClickListener(this::onVodEdit);
         mBinding.vodHome.setOnClickListener(this::onVodHome);
         mBinding.incognito.setOnClickListener(this::setIncognito);
-        mBinding.searchSuggest.setOnClickListener(this::setSearchSuggest);
         mBinding.vodHistory.setOnClickListener(this::onVodHistory);
     }
 
@@ -179,11 +179,6 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
 
     private void onTmdb(View view) {
         SettingTmdbActivity.start(this);
-    }
-
-    private void setSearchSuggest(View view) {
-        Setting.putSearchSuggest(!Setting.isSearchSuggest());
-        mBinding.searchSuggestText.setText(Setting.getSwitch(Setting.isSearchSuggest()));
     }
 
     private void setIncognito(View view) {

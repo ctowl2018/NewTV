@@ -47,11 +47,11 @@
                 android:singleLine="true"
                 android:textColor="@color/white"
                 android:textSize="18sp"
-                tools:text="开" />
+                tools:text="关" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 
-        <!-- 失败提示开关：默认开启，紧跟总开关，位置固定 -->
+        <!-- 失败提示开关：默认关闭，紧跟总开关，位置固定；总开关关闭时整行隐藏 -->
         <androidx.appcompat.widget.LinearLayoutCompat
             android:id="@+id/tmdbToast"
             android:layout_width="match_parent"
@@ -77,7 +77,7 @@
                 android:singleLine="true"
                 android:textColor="@color/white"
                 android:textSize="18sp"
-                tools:text="开" />
+                tools:text="关" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 

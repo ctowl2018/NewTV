@@ -27,7 +27,7 @@ public class FolderFragment extends BaseFragment implements PageFocus {
     private FragmentFolderBinding mBinding;
     private Class mType;
 
-    /** 供子类（如「更新推荐」页）复用同一套参数，从而继承整套分类页框架。 */
+    /** 供子类（如「首页」页）复用同一套参数，从而继承整套分类页框架。 */
     protected static Bundle args(String key, Class type) {
         Bundle bundle = new Bundle();
         bundle.putString("key", key);

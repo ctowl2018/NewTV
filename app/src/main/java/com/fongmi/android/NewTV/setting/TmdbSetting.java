@@ -81,9 +81,9 @@ public final class TmdbSetting {
         return (CURSOR.getAndIncrement() & 0x7FFFFFFF) % size;
     }
 
-    /** 总开关：关闭后播放页与首页海报聚焦都不再抓取，已缓存的图片仍可显示。 */
+    /** 总开关：默认关闭；关闭后播放页与首页海报聚焦都不再抓取，已缓存的图片仍可显示。 */
     public static boolean isEnabled() {
-        return Prefers.getBoolean(KEY_ENABLE, true);
+        return Prefers.getBoolean(KEY_ENABLE, false);
     }
 
     public static void putEnabled(boolean value) {
@@ -93,12 +93,15 @@ public final class TmdbSetting {
     /**
      * 播放详情页刮削失败时是否用 Toast 提示。
      *
-     * <p><b>默认开启</b>：首次安装没有该键时返回 true —— 刮削失败本身是用户可感知的功能缺失，
-     * 默认告知比默认静默更符合预期；嫌打扰可在「设置 → TMDB 配置」里关掉。
-     * 注意：手动点「TMDB刮削」按钮的结果不受这个开关限制，用户主动操作总要有反馈。</p>
+     * <p><b>默认关闭</b>：首次安装没有该键时返回 false —— 刮削失败属于后台的「素材补齐」，
+     * 大多数用户并不关心，默认静默以免反复打扰；需要排查时可在「设置 → TMDB 配置」里打开。
+     *
+     * <p>本开关<b>只在总开关 {@link #isEnabled()} 打开时才有意义</b>：刮削整体关闭时，
+     * 无论这里返回什么，调用方都不允许弹失败提示（见 {@code VideoActivity#onTmdbResult}）。
+     * 二者是「与」关系，不是并列关系 —— 不要只判断本方法。</p>
      */
     public static boolean isErrorToast() {
-        return Prefers.getBoolean(KEY_ERROR_TOAST, true);
+        return Prefers.getBoolean(KEY_ERROR_TOAST, false);
     }
 
     public static void putErrorToast(boolean value) {

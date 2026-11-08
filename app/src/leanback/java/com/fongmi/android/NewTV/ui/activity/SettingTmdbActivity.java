@@ -43,7 +43,10 @@ public class SettingTmdbActivity extends BaseActivity implements TmdbListener {
     @Override
     protected void initView(Bundle savedInstanceState) {
         updateText();
-        View first = mBinding.tmdbSites.getChildCount() > 0 ? mBinding.tmdbSites.getChildAt(0) : mBinding.tmdbEnable;
+        // 总开关关闭时子项全部收起，焦点只能落在总开关上。
+        View first = TmdbSetting.isEnabled() && mBinding.tmdbSites.getChildCount() > 0
+                ? mBinding.tmdbSites.getChildAt(0)
+                : mBinding.tmdbEnable;
         first.requestFocus();
     }
 
@@ -63,12 +66,16 @@ public class SettingTmdbActivity extends BaseActivity implements TmdbListener {
         if (mBinding != null) {
             updateCacheText();
             updateLogText();
+            updateVisibility();
         }
     }
 
     private void toggleEnable(View view) {
         TmdbSetting.putEnabled(!TmdbSetting.isEnabled());
         mBinding.tmdbEnableText.setText(Setting.getSwitch(TmdbSetting.isEnabled()));
+        updateVisibility();
+        // 关闭后子项全部隐藏，焦点留在总开关上，避免落到已隐藏的行。
+        if (!TmdbSetting.isEnabled()) mBinding.tmdbEnable.requestFocus();
     }
 
     private void toggleErrorToast(View view) {
@@ -106,7 +113,6 @@ public class SettingTmdbActivity extends BaseActivity implements TmdbListener {
             });
             mBinding.tmdbSites.addView(row);
         }
-        mBinding.tmdbAddSite.setVisibility(sites.size() >= TmdbSetting.MAX_SITES ? View.GONE : View.VISIBLE);
         if (focused >= 0 && focused < mBinding.tmdbSites.getChildCount()) {
             mBinding.tmdbSites.getChildAt(focused).requestFocus();
         }
@@ -118,6 +124,22 @@ public class SettingTmdbActivity extends BaseActivity implements TmdbListener {
         mBinding.tmdbToastText.setText(Setting.getSwitch(TmdbSetting.isErrorToast()));
         updateCacheText();
         updateLogText();
+        updateVisibility();
+    }
+
+    /**
+     * 总开关关闭时，其下方所有子项（提示开关、站点列表、新增站点、缓存、清理、日志）一并隐藏，
+     * 页面只留总开关，避免留下不可用又占焦点的残留行。
+     */
+    private void updateVisibility() {
+        boolean enabled = TmdbSetting.isEnabled();
+        int visibility = enabled ? View.VISIBLE : View.GONE;
+        mBinding.tmdbToast.setVisibility(visibility);
+        mBinding.tmdbSites.setVisibility(visibility);
+        mBinding.tmdbAddSite.setVisibility(enabled && TmdbSetting.getSites().size() < TmdbSetting.MAX_SITES ? View.VISIBLE : View.GONE);
+        mBinding.tmdbCache.setVisibility(visibility);
+        mBinding.tmdbClear.setVisibility(visibility);
+        mBinding.tmdbLog.setVisibility(visibility);
     }
 
     private void updateCacheText() {

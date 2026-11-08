@@ -54,7 +54,7 @@ public class DanmakuSetting {
     private static final int MAX_MAX_FIXED_LINES = 10;
 
     public static boolean isLoad() {
-        return Prefers.getBoolean("danmaku_load", true);
+        return Prefers.getBoolean("danmaku_load", false);
     }
 
     public static void putLoad(boolean danmakuLoad) {
@@ -79,13 +79,13 @@ public class DanmakuSetting {
     }
 
     /**
-     * 进度条上的弹幕热力图开关，默认开启。
+     * 「在进度条上显示弹幕热力图」开关，默认关闭。
      *
      * <p>关掉后只是不画密度条（也不再为它额外占高度），弹幕本身照常加载与显示；
      * 播放页每次 onResume 都会重新读取，改完设置回到播放页立即生效。
      */
     public static boolean isHeatmap() {
-        return Prefers.getBoolean("danmaku_heatmap", true);
+        return Prefers.getBoolean("danmaku_heatmap", false);
     }
 
     public static void putHeatmap(boolean heatmap) {

@@ -1,7 +1,7 @@
 <resources xmlns:xliff="http://schemas.android.com/apk/res-auto">
 
     <!-- Home -->
-    <!-- 旧「首页」胶囊文案，保留资源以免其它变体引用；新胶囊使用 home_recent。 -->
+    <!-- 旧「首页」胶囊文案，保留资源以免其它变体引用；「首页」胶囊现使用 home_recommend。 -->
     <string name="home_vod">首页</string>
     <string name="home_recent">最近观看</string>
     <string name="home_live">直播</string>
@@ -10,7 +10,7 @@
     <string name="home_push">连接</string>
     <string name="home_setting">设置</string>
     <string name="home_history">最近观看</string>
-    <string name="home_recommend">更新推荐</string>
+    <string name="home_recommend">首页</string>
 
     <!-- Collect -->
     <string name="collect_result">“<xliff:g name="name">%s</xliff:g>”的搜索结果</string>

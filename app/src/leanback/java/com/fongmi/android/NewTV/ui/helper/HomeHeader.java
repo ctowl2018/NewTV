@@ -53,10 +53,10 @@ public class HomeHeader implements TypeAdapter.OnClickListener {
     /** 各页面共享的类型列表：首页加载完成后发布。 */
     private static final List<Class> PUBLISHED = new ArrayList<>();
 
-    /** 从其它页面跳回首页时指定要落在哪一页：0=最近观看，1=更新推荐。 */
+    /** 从其它页面跳回首页时指定要落在哪一页：0=最近观看，1=首页（启动默认页）。 */
     public static final String EXTRA_PAGE = "home_page";
     public static final int PAGE_RECENT = 0;
-    public static final int PAGE_RECOMMEND = 1;
+    public static final int PAGE_HOME = 1;
 
     public interface Host {
 
@@ -73,7 +73,7 @@ public class HomeHeader implements TypeAdapter.OnClickListener {
             return false;
         }
 
-        /** 当前页面实际对应的胶囊位置（首页=0，分类页=当前分页+1）。 */
+        /** 当前页面实际对应的胶囊位置（最近观看=0，首页=1，分类页=当前分页+2）。 */
         default int getTypePosition() {
             return 0;
         }
@@ -116,12 +116,12 @@ public class HomeHeader implements TypeAdapter.OnClickListener {
     private void initView() {
         binding.typeNav.setHorizontalSpacing(ResUtil.dp2px(16));
         binding.typeNav.setRowHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
-        // 先摆上「最近观看 / 更新推荐」两枚固定胶囊：未配置站源（配置加载失败或站点
+        // 先摆上「最近观看 / 首页」两枚固定胶囊：未配置站源（配置加载失败或站点
         // 没有分类）时类型列表为空，导航栏也不能是一片空白。真实分类到达后由 setTypes()
-        // 覆盖，两枚固定项始终留在最前面。
+        // 覆盖，两枚固定项始终留在最前面。默认选中「首页」。
         adapter.addAll(Collections.emptyList());
         binding.typeNav.setAdapter(adapter);
-        select(0);
+        select(PAGE_HOME);
         binding.typeNav.addOnChildViewHolderSelectedListener(new OnChildViewHolderSelectedListener() {
             @Override
             public void onChildViewHolderSelected(@NonNull RecyclerView parent, @Nullable RecyclerView.ViewHolder child, int position, int subposition) {
@@ -222,7 +222,7 @@ public class HomeHeader implements TypeAdapter.OnClickListener {
     }
 
     public void setTypes(List<Class> types) {
-        setTypes(types, 0);
+        setTypes(types, PAGE_HOME);
     }
 
     public void setTypes(List<Class> types, int selected) {
@@ -339,7 +339,7 @@ public class HomeHeader implements TypeAdapter.OnClickListener {
             return;
         }
         if (item.isRecommend()) {
-            openRecommend(activity);
+            openHome(activity);
             return;
         }
         int target = position - adapter.offset();
@@ -371,12 +371,12 @@ public class HomeHeader implements TypeAdapter.OnClickListener {
         goHome(PAGE_RECENT);
     }
 
-    /** 回到首页并直接落在「更新推荐」页；分类页里的这枚胶囊是跨 Activity 的快捷入口。 */
-    public static void openRecommend(Activity from) {
+    /** 回到首页并直接落在「首页」页；分类页里的这枚胶囊是跨 Activity 的快捷入口。 */
+    public static void openHome(Activity from) {
         if (from instanceof HomeActivity) return;
         Intent intent = new Intent(from, HomeActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        intent.putExtra(EXTRA_PAGE, PAGE_RECOMMEND);
+        intent.putExtra(EXTRA_PAGE, PAGE_HOME);
         from.startActivity(intent);
         from.finish();
     }

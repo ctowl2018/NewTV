@@ -63,10 +63,10 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
     private boolean filterVisible;
 
     /**
-     * 是否为「更新推荐」页。
+     * 是否为「首页」页。
      *
      * <p>该页复用分类页的全部框架（布局、Presenter、滚动、上下行焦点、选中项复位），
-     * 只把数据源换成 {@code homeContent}，并额外保留一行「更新推荐」标题。</p>
+     * 只把数据源换成 {@code homeContent}，并额外保留一行「首页」标题。</p>
      */
     private boolean isRecommend() {
         return Class.TYPE_RECOMMEND.equals(getTypeId());
@@ -136,7 +136,7 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
         mExtends = getExtend();
         mFilters = getFilter();
         setRecyclerView();
-        // 拆页后「更新推荐」仍保留自己的标签：页面顶部一行标题，样式与最近观看一致。
+        // 「首页」仍保留自己的标签：页面顶部一行标题，样式与最近观看一致。
         if (isRecommend()) mAdapter.add(R.string.home_recommend);
         setFilters();
         if (isRecommend()) {
@@ -306,7 +306,7 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
     private void checkFilter() {
         int base = baseSize();
         int adapterSize = mAdapter.size();
-        // 刷新时只清掉海报行，保留筛选行与「更新推荐」标题行。
+        // 刷新时只清掉海报行，保留筛选行与「首页」标题行。
         if (adapterSize > base) mAdapter.removeItems(base, adapterSize - base);
         if (adapterSize <= base) mBinding.progressLayout.showProgress();
         else mBinding.swipeLayout.setRefreshing(true);

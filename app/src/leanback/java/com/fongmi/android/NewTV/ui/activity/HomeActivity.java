@@ -77,7 +77,6 @@ import com.fongmi.android.NewTV.utils.KeyUtil;
 import com.fongmi.android.NewTV.utils.Notify;
 import com.fongmi.android.NewTV.utils.PermissionUtil;
 import com.fongmi.android.NewTV.utils.ResUtil;
-import com.fongmi.android.NewTV.utils.Util;
 import com.github.catvod.net.OkHttp;
 
 import org.greenrobot.eventbus.Subscribe;
@@ -92,7 +91,7 @@ import java.util.List;
  * <p>导航胶囊下标与分页下标的约定（与 {@link TypeAdapter} 的两枚前置固定胶囊对应）：</p>
  * <pre>
  *   胶囊 0 = 最近观看（本 Activity 的 progressLayout / recycler，不占分页）
- *   胶囊 1 = 更新推荐（分页 0，RecommendFragment）
+ *   胶囊 1 = 首页（分页 0，RecommendFragment；应用启动默认页）
  *   胶囊 2.. = 真实分类（分页 1..N，FolderFragment）  → 分页下标 = 胶囊下标 − 1
  * </pre>
  *
@@ -152,8 +151,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private boolean actionReady;
     private boolean initialFocusApplied;
     private int lastTypePosition = -1;
-    /** 启动 / onNewIntent 指定的落地页；-1 表示已生效，仅生效一次，避免刷新时把用户踢回该页。 */
-    private int mInitialPage = -1;
+    /** 启动 / onNewIntent 指定的落地页；默认「首页」。-1 = 已生效，仅生效一次，避免刷新时把用户踢回该页。 */
+    private int mInitialPage = HomeHeader.PAGE_HOME;
     private Result mResult;
     /** 海报按返回时记住的那张海报，胶囊上按 ↓ 回到它。 */
     private View mPendingPoster;
@@ -215,15 +214,17 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         super.onNewIntent(intent);
         setIntent(intent);
         pendingAction = intent;
-        if (intent.getIntExtra(HomeHeader.EXTRA_PAGE, -1) == HomeHeader.PAGE_RECOMMEND) {
-            mInitialPage = HomeHeader.PAGE_RECOMMEND;
+        int page = intent.getIntExtra(HomeHeader.EXTRA_PAGE, -1);
+        if (page == HomeHeader.PAGE_HOME || page == HomeHeader.PAGE_RECENT) {
+            mInitialPage = page;
             // 热启动：页面已就绪，直接落过去；冷启动由 setTypes() 在分类栏就绪后落地。
             if (mHeader != null && mHeader.getAdapter().getItemCount() > 1) {
                 mInitialPage = -1;
                 clearPendingPoster();
-                mHeader.select(1);
-                mHeader.focusType(1);
-                showCategory(0);
+                cancelPendingCategory();
+                mHeader.focusType(page);
+                if (page == HomeHeader.PAGE_RECENT) showRecent();
+                else showCategory(0);
             }
         }
         consumeAction();
@@ -247,7 +248,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     @Override
     protected void initView(Bundle savedInstanceState) {
         if (savedInstanceState == null || !savedInstanceState.getBoolean(STATE_ACTION_HANDLED)) pendingAction = getIntent();
-        if (getIntent().getIntExtra(HomeHeader.EXTRA_PAGE, -1) == HomeHeader.PAGE_RECOMMEND) mInitialPage = HomeHeader.PAGE_RECOMMEND;
+        int page = getIntent().getIntExtra(HomeHeader.EXTRA_PAGE, -1);
+        if (page == HomeHeader.PAGE_HOME || page == HomeHeader.PAGE_RECENT) mInitialPage = page;
         mResult = Result.empty();
         mBinding.progressLayout.showProgress();
         setupHomeHero();
@@ -343,7 +345,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     }
 
     /**
-     * 刷新站点首页数据（分类导航 + 「更新推荐」海报）。
+     * 刷新站点首页数据（分类导航 + 「首页」海报）。
      *
      * <p><b>请求必须由本 Activity 发起</b>：冷启动 / 换源时分页仍是 GONE，
      * RecommendFragment 及其子 TypeFragment 还没创建完，{@link FolderFragment#onRefresh()}
@@ -372,24 +374,19 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private void setTypes() {
         List<Class> types = mResult.getTypes();
         int current = mHeader.getSelected();
-        // 分类列表变化（换源/刷新）：上一轮记住的海报已失效。
+        // 分类列表变化（换源/刷新）：上一轮记住的海报已失效，未落地的切换也一并作废。
         clearPendingPoster();
+        cancelPendingCategory();
         HomeHeader.publish(types);
-        mHeader.setTypes(types, 0);
+        // 首次进入默认落在「首页」胶囊（1）；外部 Intent 可指定「最近观看」（0）；
+        // 之后的刷新保留用户当前所在页，不把人踢回默认页。
+        int target = mInitialPage >= 0 ? mInitialPage : current;
+        mInitialPage = -1;
+        mHeader.setTypes(types, target);
         if (mBinding.pager.getAdapter() != null) mBinding.pager.getAdapter().notifyDataSetChanged();
-        if (mInitialPage == HomeHeader.PAGE_RECOMMEND) {
-            // 从分类页跳回「更新推荐」：只落地一次，之后的刷新保持用户当前所在页。
-            mInitialPage = -1;
-            mHeader.select(1);
-            showCategory(0);
-        } else if (current > 0 && current < mHeader.getAdapter().getItemCount()) {
-            // 刷新数据时保留当前位置：仍在同一个分类页，不把用户踢回第一页。
-            // setTypes() 内部的 select(0) 会先触发一次 showRecent()，所以这里必须显式恢复分页。
-            mHeader.select(current);
-            showCategory(current - 1);
-        } else {
-            showRecent();
-        }
+        int selected = mHeader.getSelected();
+        if (selected <= 0) showRecent();
+        else showCategory(selected - 1);
         setFocus();
     }
 
@@ -432,6 +429,12 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     private void onConfigReady(boolean ok) {
         actionReady = true;
+        // 配置加载失败：不会有首页数据，退到「最近观看」兜底，
+        // 避免高亮「首页」胶囊却仍显示最近观看内容。
+        if (!ok && mHeader != null && mHeader.getAdapter().getTypes().isEmpty()) {
+            mInitialPage = HomeHeader.PAGE_RECENT;
+            mHeader.select(HomeHeader.PAGE_RECENT);
+        }
         showContent();
         // 配置就没加载成功：不会有首页数据，欢迎页不必再等
         if (!ok) onHomeLoaded();
@@ -672,7 +675,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     private void startHeroRotate() {
         if (mHeroRotating) return;
-        // 只服务于「最近观看」板块：其它板块（更新推荐 / 分类）有自己的海报焦点，不在此轮换。
+        // 只服务于「最近观看」板块：其它板块（首页 / 分类）有自己的海报焦点，不在此轮换。
         if (!isRecentSectionActive()) return;
         if (mHeroRotateItems.isEmpty()) return; // 数据未就绪，等 getHistory() 回调再启动
         mHeroRotating = true;
@@ -839,7 +842,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         if (initialFocusApplied) return;
         if (mHeader.getAdapter().getItemCount() == 0) return;
         initialFocusApplied = true;
-        mHeader.focusType(mInitialPage == HomeHeader.PAGE_RECOMMEND ? 1 : 0);
+        // 落地页由 setTypes() 先确定，这里只把焦点交给当前选中的胶囊（默认「首页」）。
+        mHeader.focusType(Math.max(0, mHeader.getSelected()));
     }
 
     /** 第一张历史海报所在行；没有历史记录时返回 -1。 */
@@ -902,9 +906,25 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         return isDescendant(focus, mBinding.recycler) || isDescendant(focus, mBinding.pager);
     }
 
-    /** 当前是否处于「最近观看」页（而非内嵌分类分页）。 */
-    private boolean isHomePage() {
-        return mBinding.pager.getVisibility() != View.VISIBLE;
+    /** 当前是否停在「首页」胶囊对应的分页（分页 0，且已真正切过去）。 */
+    private boolean isHomeCapsule() {
+        return mHeader.getSelected() == HomeHeader.PAGE_HOME
+                && mBinding.pager.getVisibility() == View.VISIBLE
+                && mBinding.pager.getCurrentItem() == 0;
+    }
+
+    /** 取消还在去抖中的分类切换任务，避免返回 / 落地后被旧任务重新拉回分类页。 */
+    private void cancelPendingCategory() {
+        mPendingCategory = -1;
+        mBinding.pager.removeCallbacks(mCategoryTask);
+    }
+
+    /** 统一返回「首页」胶囊：分页切回 0，焦点落回该胶囊。 */
+    private void backToHomeCapsule() {
+        clearPendingPoster();
+        cancelPendingCategory();
+        mHeader.focusType(HomeHeader.PAGE_HOME);
+        showCategory(0);
     }
 
     private boolean isTypeBarFocused() {
@@ -1171,8 +1191,9 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
             showRecent();
             return;
         }
-        // 「更新推荐」没有二级筛选：确认键按刷新处理。
+        // 「首页」没有二级筛选：确认键先确保落在首页分页，再刷新内容。
         if (item.isRecommend()) {
+            showCategory(0);
             refreshRecommend();
             return;
         }
@@ -1241,6 +1262,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     /** 「最近观看」页：从其它分页回来时把选中项复位到第一张（不抢焦点）。 */
     private void showRecent() {
+        mLastBackAt = 0; // 离开首页后重置「连按两次返回退出」的计时窗口
         boolean returning = mBinding.pager.getVisibility() == View.VISIBLE;
         mBinding.pager.setVisibility(View.GONE);
         // 兜底：内容态下回本页必须保证网格可见，避免被分页里的滚动逻辑误置 GONE 后一片空白。
@@ -1263,6 +1285,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         // 已经停在该页时 onPageSelected 不会触发，这里本该补一次复位；但导航去抖任务可能在
         // 「↓ 刚把焦点送进海报」之后才重复到达，重复复位会把刚落好的焦点又拨回第一张，故跳过。
         if (alreadyShown) return;
+        mLastBackAt = 0; // 真正切页后重置退出计时，避免上一次在首页的提示误伤本次返回
         final int page = index;
         mBinding.pager.post(() -> {
             PageFocus target = getPage(page);
@@ -1345,13 +1368,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         } else if (!isTypeBarFocused()) {
             // 焦点在品牌行（logo / 搜索 / 收藏 / 连接 / 设置）：先回导航栏。
             focusCapsule(mHeader.getSelected());
-        } else if (mBinding.pager.getVisibility() == View.VISIBLE) {
-            // 分类 / 推荐胶囊返回：回到「最近观看」。
-            clearPendingPoster();
-            mHeader.select(0);
-            showRecent();
-        } else if (isHomePage() && mHeader.getSelected() == 0 && isTypeBarFocused()) {
-            // 最近观看胶囊：连按两次返回退出应用，先提示、2 秒内再按一次退出
+        } else if (isHomeCapsule()) {
+            // 首页胶囊：连按两次返回退出应用，先提示、2 秒内再按一次退出
             long now = SystemClock.elapsedRealtime();
             if (now - mLastBackAt <= BACK_EXIT_WINDOW) {
                 finish();
@@ -1360,8 +1378,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
                 Notify.show(R.string.back_exit_hint);
             }
         } else {
-            if (PlaybackService.isRunning()) Util.moveToBackground(this);
-            else super.onBackInvoked();
+            // 其余所有胶囊（最近观看 / 各内容分类页）统一返回「首页」胶囊。
+            backToHomeCapsule();
         }
     }
 
@@ -1396,7 +1414,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         @Override
         public Fragment getItem(int position) {
             String key = VodConfig.get().getHome().getKey();
-            // 分页 0 是拆出来的「更新推荐」独立页，它继承 FolderFragment 的整套分类页框架。
+            // 分页 0 是「首页」独立页，它继承 FolderFragment 的整套分类页框架。
             if (position == 0) return RecommendFragment.newInstance(key);
             List<Class> types = mHeader.getAdapter().getTypes();
             if (types.isEmpty()) return RecommendFragment.newInstance(key);

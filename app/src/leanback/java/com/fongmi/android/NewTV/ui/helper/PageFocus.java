@@ -3,7 +3,7 @@ package com.fongmi.android.NewTV.ui.helper;
 /**
  * 「内容分页」的统一焦点契约。
  *
- * <p>分类页（{@code FolderFragment}）与「更新推荐」页（{@code RecommendFragment}）
+ * <p>分类页（{@code FolderFragment}）与「首页」页（{@code RecommendFragment}）
  * 都实现本接口，宿主 Activity 不必区分页面类型即可完成：</p>
  * <ul>
  *   <li>胶囊 ↓ → {@link #focusFirstPoster()}；</li>

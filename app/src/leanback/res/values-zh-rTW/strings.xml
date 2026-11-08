@@ -1,7 +1,7 @@
 <resources xmlns:xliff="http://schemas.android.com/apk/res-auto">
 
     <!-- Home -->
-    <!-- 舊「首頁」膠囊文案，保留資源以免其它變體引用；新膠囊使用 home_recent。 -->
+    <!-- 舊「首頁」膠囊文案，保留資源以免其它變體引用；「首頁」膠囊現使用 home_recommend。 -->
     <string name="home_vod">首頁</string>
     <string name="home_recent">最近觀看</string>
     <string name="home_live">直播</string>
@@ -10,7 +10,7 @@
     <string name="home_push">連線</string>
     <string name="home_setting">設定</string>
     <string name="home_history">最近觀看</string>
-    <string name="home_recommend">更新推薦</string>
+    <string name="home_recommend">首頁</string>
 
     <!-- Collect -->
     <string name="collect_result">「<xliff:g name="name">%s</xliff:g>」的搜尋結果</string>

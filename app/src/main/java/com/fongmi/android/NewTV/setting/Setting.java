@@ -24,11 +24,27 @@ public class Setting {
      */
     public static void migrateDefaults() {
         try {
-            if (Prefers.getBoolean("defaults_v2")) return;
-            Prefers.put("danmaku_load", true);
-            Prefers.put("danmaku_api_url", DanmakuSetting.DEFAULT_API_URL);
-            Prefers.put("size", 1);
-            Prefers.put("defaults_v2", true);
+            if (!Prefers.getBoolean("defaults_v2")) {
+                Prefers.put("danmaku_load", true);
+                Prefers.put("danmaku_api_url", DanmakuSetting.DEFAULT_API_URL);
+                Prefers.put("size", 1);
+                Prefers.put("defaults_v2", true);
+            }
+            if (!Prefers.getBoolean("defaults_v3")) {
+                // v3 默认值：弹幕加载 / 进度条热力图 / TMDB 刮削改为默认关闭；
+                // 「联网搜索建议」入口已从设置页移除，固定开启。
+                Prefers.put("search_suggest", true);
+                DanmakuSetting.putLoad(false);
+                DanmakuSetting.putHeatmap(false);
+                TmdbSetting.putEnabled(false);
+                Prefers.put("defaults_v3", true);
+            }
+            if (!Prefers.getBoolean("defaults_v4")) {
+                // v4 默认值：TMDB「刮削失败提示」改为默认关闭。
+                // 单独开一档而不是并进 v3：已经跑过 v3 的安装也要覆盖到，且只覆盖一次。
+                TmdbSetting.putErrorToast(false);
+                Prefers.put("defaults_v4", true);
+            }
         } catch (Exception ignored) {
             // 启动阶段 Prefers 尚未就绪时忽略，下次启动再迁移。
         }

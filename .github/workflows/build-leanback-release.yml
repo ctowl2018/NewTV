@@ -23,6 +23,15 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      # 缓存 Gradle 发行包（wrapper 下载的 gradle-9.7.1 分发包）与依赖到 Actions 缓存，
+      # 后续构建无需重新下载 gradle 分发包与依赖，既加速又规避此前 gradle-wrapper 下载超时的偶发问题。
+      # 默认 cache-enabled=true 同时缓存发行包与 ~/.gradle 依赖；本仓库用 Gradle wrapper，故 gradle-version 取 wrapper。
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: wrapper
+          cache-enabled: true
+
       # GitHub runner 预装的 sdkmanager 索引较旧，无法识别 platforms;android-37，
       # 因此这里自下载官方 commandlinetools 并安装所需平台/构建工具。
       - name: Install Android SDK packages

@@ -437,6 +437,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         // 弹幕热力图：解析完成 / 换集清空都会回调，先把已有数据贴上（换集后是空）
         DanmakuHeat.addListener(mHeatListener);
         applyHeatmap();
+        updateTmdbButton();
         checkCast();
         checkId();
     }
@@ -477,15 +478,12 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mBinding.control.action.opening.setUpListener(this::onOpeningSub);
         mBinding.control.action.playPause.setOnClickListener(view -> onPlayPause());
         mBinding.control.action.panelBtn.setOnClickListener(view -> onControlPanel());
-        // 弹幕：单击 = 当前播放的快捷开关，长按 = 打开「选择弹幕」浮层
+        // 弹幕：单击 = 当前播放的快捷开关，长按 = 打开「选择弹幕」浮层。
+        // 系统总开关关闭时按钮置灰，但提示只在按确认键（点击）时给出 —— 仅聚焦不提示。
         mBinding.control.action.danmaku.setOnClickListener(view -> onDanmakuToggle());
         mBinding.control.action.danmaku.setOnLongClickListener(view -> {
             onDanmakuSheet();
             return true;
-        });
-        // 全局弹幕开关关闭时按钮置灰：一旦被「选中」（获得焦点）即提示去设置里开启。
-        mBinding.control.action.danmaku.setOnFocusChangeListener((view, hasFocus) -> {
-            if (hasFocus && !DanmakuSetting.isLoad()) Notify.show(R.string.danmaku_disabled_hint);
         });
         mBinding.control.action.next.setOnClickListener(view -> checkNext());
         mBinding.control.action.next.setOnLongClickListener(view -> {
@@ -663,7 +661,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     /**
      * 弹幕按钮：
      * 开启态 = 图标勾（selected），关闭态 = 斜线；
-     * 系统弹幕总开关关闭时整颗按钮变灰（alpha 0.4）且点击无效，但仍保留焦点，避免焦点链出现空洞。
+     * 系统弹幕总开关关闭时整颗按钮变灰（alpha 0.4），按确认键仅提示去设置开启；
+     * 按钮仍保留焦点，避免焦点链出现空洞。
      */
     private void syncDanmaku() {
         boolean load = DanmakuSetting.isLoad();
@@ -939,8 +938,18 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     /**
-     * 自动刮削的结果回调。失败时按「刮削失败提示」开关决定是否弹 Toast；
-     * 手动重试（点「TMDB刮削」按钮）成功、失败都提示 —— 用户主动点了，总要给个回执。
+     * 自动刮削的结果回调。
+     *
+     * <p>失败提示的判定分两层，顺序不能颠倒：
+     * <ol>
+     *   <li><b>总开关优先</b>：{@link TmdbSetting#isEnabled()} 为 false 时一律不弹，
+     *       无论「刮削失败提示」开关是开还是关。这一层要放在最前面，因为 {@code TmdbApi}
+     *       虽然会在总开关关闭时直接短路（记一条 skip 日志），但「关开关」与「请求在途」
+     *       可能并发 —— 关掉之后到达的旧结果仍会走这个回调，必须在展示前再判定一次。</li>
+     *   <li><b>再按开关决定自动抓取是否提示</b>：手动重试（点「TMDB刮削」按钮）仍然成功、
+     *       失败都给回执 —— 用户主动点了，总要有个反馈；只是这条路径在总开关关闭时按钮已隐藏，
+     *       正常无法触发。</li>
+     * </ol>
      */
     private final TmdbApi.FetchCallback mTmdbCallback = new TmdbApi.FetchCallback() {
 
@@ -964,8 +973,20 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
             if (manual) Notify.show(getString(R.string.tmdb_retry_success, TextUtils.isEmpty(title) ? keyword : title));
             return;
         }
+        // 总开关关闭：任何刮削失败提示都不显示（含在途请求在关闭后才返回的结果），
+        // 「刮削失败提示」开关此时不参与判定。
+        if (!TmdbSetting.isEnabled()) return;
+        // 总开关开启：自动抓取按「刮削失败提示」开关决定；手动重试总是给回执。
         if (!manual && !TmdbSetting.isErrorToast()) return;
         Notify.show(getString(R.string.tmdb_fetch_failed, reason));
+    }
+
+    /** 总开关关闭时隐藏详情页的「TMDB刮削」按钮，避免留下不可用的残留按钮。 */
+    private void updateTmdbButton() {
+        boolean enabled = TmdbSetting.isEnabled();
+        mBinding.tmdb.setVisibility(enabled ? View.VISIBLE : View.GONE);
+        // 「换源」的右键焦点原本固定指向 tmdb；按钮隐藏后改回默认焦点搜索，避免指向 GONE 视图。
+        mBinding.change.setNextFocusRightId(enabled ? R.id.tmdb : View.NO_ID);
     }
 
     /** 「TMDB刮削」按钮：跳过内部冷却与 miss 记录强制重抓，用于刮削失败后的手动重试。 */
@@ -2760,8 +2781,9 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     @Override
     protected void onResume() {
         super.onResume();
-        // 设置里可能刚改过「弹幕加载 / 进度条弹幕热力图」，回到播放页立即按新开关重贴一次
+        // 设置里可能刚改过「弹幕加载 / 进度条弹幕热力图 / TMDB 刮削」，回到播放页立即按新开关重贴一次
         applyHeatmap();
+        updateTmdbButton();
     }
 
     @Override

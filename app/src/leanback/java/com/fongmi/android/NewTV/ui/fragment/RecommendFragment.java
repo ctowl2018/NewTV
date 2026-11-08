@@ -3,7 +3,7 @@ package com.fongmi.android.NewTV.ui.fragment;
 import com.fongmi.android.NewTV.ui.adapter.TypeAdapter;
 
 /**
- * 「更新推荐」独立页。
+ * 「首页」独立页（应用启动默认页）。
  *
  * <p>从原首页里拆出来的第二个导航页。它<b>完整继承分类页框架</b>：
  * {@link FolderFragment} 的容器 / 子 Fragment 栈 / 二级文件夹返回，以及
@@ -12,7 +12,7 @@ import com.fongmi.android.NewTV.ui.adapter.TypeAdapter;
  *
  * <p>实现上不新建一套布局：构造参数里放一枚 typeId={@code recommend} 的
  * {@link com.fongmi.android.NewTV.bean.Class}，TypeFragment 据此进入 recommend 模式，
- * 同时在页面顶部保留「更新推荐」标题行。由于继承自 FolderFragment，
+ * 同时在页面顶部保留「首页」标题行。由于继承自 FolderFragment，
  * 它自动满足宿主使用的 {@link com.fongmi.android.NewTV.ui.helper.PageFocus} 契约。</p>
  */
 public class RecommendFragment extends FolderFragment {
